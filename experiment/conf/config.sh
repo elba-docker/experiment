@@ -13,6 +13,7 @@ readonly HARDWARE_TYPE="<FILL IN>"
 # Hostnames of each tier.
 # Example (bare metal host): pc853.emulab.net
 # Example (virtual machine): 10.254.3.128
+readonly CONTROL_PLANE_HOST="<FILL IN>"
 readonly WEB_HOSTS="<FILL IN>"
 readonly POSTGRESQL_HOST="<FILL IN>"
 readonly WORKER_HOSTS="<FILL IN>"
