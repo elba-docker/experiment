@@ -23,49 +23,49 @@ for host in $all_hosts; do
 done
 
 
-echo "[$(date +%s)] Filesystem setup:"
-if [[ $HOSTS_TYPE = "vm" ]]; then
-  fs_rootdir="/experiment"
-  for host in $all_hosts; do
-    echo "  [$(date +%s)][VM] Creating directories in host $host"
-    ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
-        -o BatchMode=yes $USERNAME@$host "
-      sudo mkdir -p $fs_rootdir
-      sudo chown $USERNAME $fs_rootdir
-    "
-  done
-else
-  fs_rootdir="/mnt/experiment"
-  pdisk="/dev/sdb"
-  pno=1
-  psize="128G"
-  for host in $all_hosts; do
-    echo "  [$(date +%s)][PHYSICAL] Creating disk partition in host $host"
-    ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
-        -o BatchMode=yes $USERNAME@$host "
-      echo -e \"n\np\n${pno}\n\n+${psize}\nw\n\" | sudo fdisk $pdisk
-      nohup sudo systemctl reboot -i &>/dev/null & exit
-    "
-  done
-  sleep 240
-  sessions=()
-  n_sessions=0
-  for host in $all_hosts; do
-    echo "  [$(date +%s)][PHYSICAL] Making filesystem and mounting partition in host $host"
-    ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
-        -o BatchMode=yes $USERNAME@$host "
-      sudo mkfs -F -t ext4 ${pdisk}${pno}
-      sudo mkdir -p $fs_rootdir
-      sudo mount ${pdisk}${pno} $fs_rootdir
-      sudo chown $USERNAME $fs_rootdir
-    " &
-    sessions[$n_sessions]=$!
-    let n_sessions=n_sessions+1
-  done
-  for session in ${sessions[*]}; do
-    wait $session
-  done
-fi
+# echo "[$(date +%s)] Filesystem setup:"
+# if [[ $HOSTS_TYPE = "vm" ]]; then
+#   fs_rootdir="/experiment"
+#   for host in $all_hosts; do
+#     echo "  [$(date +%s)][VM] Creating directories in host $host"
+#     ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
+#         -o BatchMode=yes $USERNAME@$host "
+#       sudo mkdir -p $fs_rootdir
+#       sudo chown $USERNAME $fs_rootdir
+#     "
+#   done
+# else
+#   fs_rootdir="/mnt/experiment"
+#   pdisk="/dev/sdb"
+#   pno=1
+#   psize="128G"
+#   for host in $all_hosts; do
+#     echo "  [$(date +%s)][PHYSICAL] Creating disk partition in host $host"
+#     ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
+#         -o BatchMode=yes $USERNAME@$host "
+#       echo -e \"n\np\n${pno}\n\n+${psize}\nw\n\" | sudo fdisk $pdisk
+#       nohup sudo systemctl reboot -i &>/dev/null & exit
+#     "
+#   done
+#   sleep 240
+#   sessions=()
+#   n_sessions=0
+#   for host in $all_hosts; do
+#     echo "  [$(date +%s)][PHYSICAL] Making filesystem and mounting partition in host $host"
+#     ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
+#         -o BatchMode=yes $USERNAME@$host "
+#       sudo mkfs -F -t ext4 ${pdisk}${pno}
+#       sudo mkdir -p $fs_rootdir
+#       sudo mount ${pdisk}${pno} $fs_rootdir
+#       sudo chown $USERNAME $fs_rootdir
+#     " &
+#     sessions[$n_sessions]=$!
+#     let n_sessions=n_sessions+1
+#   done
+#   for session in ${sessions[*]}; do
+#     wait $session
+#   done
+# fi
 
 
 echo "[$(date +%s)] Common software setup:"
@@ -84,25 +84,25 @@ for host in $all_hosts; do
     sudo swapoff -a
 
     # Install Docker.
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=DontWarn apt-key add -
     sudo add-apt-repository \
-      "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
-      $(lsb_release -cs) \
-      stable"
+      \"deb [arch=amd64] https://download.docker.com/linux/ubuntu \
+      \$(lsb_release -cs) \
+      stable\"
     ## Install Docker CE.
-    sudo apt-get update && sudo apt-get install -y \
+    sudo apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
       containerd.io=1.2.10-3 \
-      docker-ce=5:19.03.4~3-0~ubuntu-$(lsb_release -cs) \
-      docker-ce-cli=5:19.03.4~3-0~ubuntu-$(lsb_release -cs)
+      docker-ce=5:19.03.4~3-0~ubuntu-\$(lsb_release -cs) \
+      docker-ce-cli=5:19.03.4~3-0~ubuntu-\$(lsb_release -cs)
     # Setup daemon.
 cat <<EOF | sudo tee /etc/docker/daemon.json
 {
-  "exec-opts": ["native.cgroupdriver=systemd"],
-  "log-driver": "json-file",
-  "log-opts": {
-    "max-size": "100m"
+  \"exec-opts\": [\"native.cgroupdriver=systemd\"],
+  \"log-driver\": \"json-file\",
+  \"log-opts\": {
+    \"max-size\": \"100m\"
   },
-  "storage-driver": "overlay2"
+  \"storage-driver\": \"overlay2\"
 }
 EOF
     sudo mkdir -p /etc/systemd/system/docker.service.d
@@ -111,13 +111,21 @@ EOF
     sudo systemctl restart docker
 
     # Install kubeadm
-    curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
-    cat <<EOF | sudo tee /etc/apt/sources.list.d/kubernetes.list
-    deb https://apt.kubernetes.io/ kubernetes-xenial main
-    EOF
+    curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=DontWarn apt-key add -
+cat <<EOF | sudo tee /etc/apt/sources.list.d/kubernetes.list
+deb https://apt.kubernetes.io/ kubernetes-xenial main
+EOF
     sudo apt-get update
     sudo DEBIAN_FRONTEND=noninteractive apt-get install -y kubelet kubeadm kubectl
     sudo apt-mark hold kubelet kubeadm kubectl
+
+    # Clone wise-kubernetes.
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git
+    ssh-keyscan -H github.com >> ~/.ssh/known_hosts
+    rm -rf wise-kubernetes
+    git clone git@github.com:jazevedo620/wise-kubernetes.git
+    rm -rf $wise_home
+    mv wise-kubernetes $fs_rootdir
 
     # Install Collectl.
     cd $fs_rootdir
@@ -136,17 +144,6 @@ done
 echo "[$(date +%s)] Setting up control plane server on host $CONTROL_PLANE_HOST"
 ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
     -o BatchMode=yes $USERNAME@$CONTROL_PLANE_HOST "
-  # Synchronize apt.
-  sudo apt-get update
-
-  # Clone wise-kubernetes.
-  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git
-  ssh-keyscan -H github.com >> ~/.ssh/known_hosts
-  rm -rf wise-kubernetes
-  git clone git@github.com:jazevedo620/wise-kubernetes.git
-  rm -rf $wise_home
-  mv wise-kubernetes $fs_rootdir
-
   # Required for flannel to operate.
   sudo sysctl net.bridge.bridge-nf-call-iptables=1
 
@@ -156,7 +153,7 @@ ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
 
   mkdir -p $HOME/.kube
   sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
-  sudo chown $(id -u):$(id -g) $HOME/.kube/config
+  sudo chown \$(id -u):\$(id -g) $HOME/.kube/config
   export KUBECONFIG=$HOME/.kube/config
 
   sudo kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/2140ac876ef134e0ed5af15c65e414cf26827915/Documentation/kube-flannel.yml
