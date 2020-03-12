@@ -164,7 +164,7 @@ session=$!
 wait $session
 # Retreive join command from remote node
 scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no $USERNAME@$CONTROL_PLANE_HOST:$join_file join.txt
-$join_command=$(<join.txt)
+join_command="$(<join.txt)"
 echo $join_command
 
 
