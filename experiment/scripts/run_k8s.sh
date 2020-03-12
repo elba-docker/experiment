@@ -28,11 +28,11 @@ if [[ $HOSTS_TYPE = "vm" ]]; then
   fs_rootdir="/experiment"
   for host in $all_hosts; do
     echo "  [$(date +%s)][VM] Creating directories in host $host"
-    # ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
-    #     -o BatchMode=yes $USERNAME@$host "
-    #   sudo mkdir -p $fs_rootdir
-    #   sudo chown $USERNAME $fs_rootdir
-    # "
+    ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
+        -o BatchMode=yes $USERNAME@$host "
+      sudo mkdir -p $fs_rootdir
+      sudo chown $USERNAME $fs_rootdir
+    "
   done
 else
   fs_rootdir="/mnt/experiment"
@@ -41,30 +41,30 @@ else
   psize="128G"
   for host in $all_hosts; do
     echo "  [$(date +%s)][PHYSICAL] Creating disk partition in host $host"
-    # ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
-    #     -o BatchMode=yes $USERNAME@$host "
-    #   echo -e \"n\np\n${pno}\n\n+${psize}\nw\n\" | sudo fdisk $pdisk
-    #   nohup sudo systemctl reboot -i &>/dev/null & exit
-    # "
+    ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
+        -o BatchMode=yes $USERNAME@$host "
+      echo -e \"n\np\n${pno}\n\n+${psize}\nw\n\" | sudo fdisk $pdisk
+      nohup sudo systemctl reboot -i &>/dev/null & exit
+    "
   done
-  # sleep 240
-  # sessions=()
-  # n_sessions=0
+  sleep 240
+  sessions=()
+  n_sessions=0
   for host in $all_hosts; do
     echo "  [$(date +%s)][PHYSICAL] Making filesystem and mounting partition in host $host"
-    # ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
-    #     -o BatchMode=yes $USERNAME@$host "
-    #   sudo mkfs -F -t ext4 ${pdisk}${pno}
-    #   sudo mkdir -p $fs_rootdir
-    #   sudo mount ${pdisk}${pno} $fs_rootdir
-    #   sudo chown $USERNAME $fs_rootdir
-    # " &
-    # sessions[$n_sessions]=$!
-    # let n_sessions=n_sessions+1
+    ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
+        -o BatchMode=yes $USERNAME@$host "
+      sudo mkfs -F -t ext4 ${pdisk}${pno}
+      sudo mkdir -p $fs_rootdir
+      sudo mount ${pdisk}${pno} $fs_rootdir
+      sudo chown $USERNAME $fs_rootdir
+    " &
+    sessions[$n_sessions]=$!
+    let n_sessions=n_sessions+1
   done
-  # for session in ${sessions[*]}; do
-  #   wait $session
-  # done
+  for session in ${sessions[*]}; do
+    wait $session
+  done
 fi
 
 
@@ -85,14 +85,14 @@ for host in $all_hosts; do
 
     # Install Docker.
     curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=DontWarn apt-key add -
-    sudo add-apt-repository \
-      \"deb [arch=amd64] https://download.docker.com/linux/ubuntu \
-      \$(lsb_release -cs) \
+    sudo add-apt-repository \\
+      \"deb [arch=amd64] https://download.docker.com/linux/ubuntu \\
+      \$(lsb_release -cs) \\
       stable\"
     ## Install Docker CE.
-    sudo apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
-      containerd.io=1.2.10-3 \
-      docker-ce=5:19.03.4~3-0~ubuntu-\$(lsb_release -cs) \
+    sudo apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \\
+      containerd.io=1.2.10-3 \\
+      docker-ce=5:19.03.4~3-0~ubuntu-\$(lsb_release -cs) \\
       docker-ce-cli=5:19.03.4~3-0~ubuntu-\$(lsb_release -cs)
     # Setup daemon.
 cat <<EOF | sudo tee /etc/docker/daemon.json
@@ -122,14 +122,14 @@ EOF
     # Clone wise-kubernetes.
     sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git
     ssh-keyscan -H github.com >> ~/.ssh/known_hosts
-    rm -rf wise-kubernetes
+    sudo rm -rf wise-kubernetes
     git clone git@github.com:jazevedo620/wise-kubernetes.git
-    rm -rf $wise_home
-    mv wise-kubernetes $fs_rootdir
+    sudo rm -rf $wise_home
+    sudo mv wise-kubernetes $fs_rootdir
 
     # Install Collectl.
-    cd $fs_rootdir
-    tar -xzf $wise_home/experiment/artifacts/collectl-4.3.1.src.tar.gz -C .
+    sudo cd $fs_rootdir
+    sudo tar -xzf $wise_home/experiment/artifacts/collectl-4.3.1.src.tar.gz -C .
     cd collectl-4.3.1
     sudo ./INSTALL
   " &
@@ -158,7 +158,6 @@ ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
   export KUBECONFIG=$HOME/.kube/config
 
   sudo kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/2140ac876ef134e0ed5af15c65e414cf26827915/Documentation/kube-flannel.yml
-  touch $join_file
   sudo kubeadm token create --print-join-command 2>/dev/null > $join_file
 " &
 session=$!
@@ -166,6 +165,7 @@ wait $session
 # Retreive join command from remote node
 scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no $USERNAME@$CONTROL_PLANE_HOST:$join_file join.txt
 $join_command=$(<join.txt)
+echo $join_command
 
 
 echo "[$(date +%s)] Joining all nodes to cluster"
