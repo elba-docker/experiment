@@ -283,79 +283,79 @@ done
 # sleep 16
 
 
-# # TODO write k8s deployment config
-# # TODO render with environment variables like workload.yml
-# echo "[$(date +%s)] Applying kubernetes deployment config to control plane host $CONTROL_PLANE_HOST"
-# ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
-#     -o BatchMode=yes $USERNAME@$CONTROL_PLANE_HOST "
-#   sudo kubectl apply -f $fs_rootdir/wise-kubernetes/conf/deployment.yml
-# " &
-# session=$!
-# wait $session
+# TODO write k8s deployment config
+# TODO render with environment variables like workload.yml
+echo "[$(date +%s)] Applying kubernetes deployment config to control plane host $CONTROL_PLANE_HOST"
+ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
+    -o BatchMode=yes $USERNAME@$CONTROL_PLANE_HOST "
+  sudo kubectl apply -f $fs_rootdir/wise-kubernetes/conf/deployment.yml
+" &
+session=$!
+wait $session
 
 
-# sleep 120
+sleep 120
 
 
-# echo "[$(date +%s)] Benchmark execution:"
-# sessions=()
-# n_sessions=0
-# for host in $CLIENT_HOSTS; do
-#   echo "  [$(date +%s)] Generating requests from host $host"
-#   ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
-#       -o BatchMode=yes $USERNAME@$host "
-#     source $wise_home/.env/bin/activate
+echo "[$(date +%s)] Benchmark execution:"
+sessions=()
+n_sessions=0
+for host in $CLIENT_HOSTS; do
+  echo "  [$(date +%s)] Generating requests from host $host"
+  ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
+      -o BatchMode=yes $USERNAME@$host "
+    source $wise_home/.env/bin/activate
 
-#     # Set PYTHONPATH.
-#     export PYTHONPATH=$wise_home/WISELoad/include/:$PYTHONPATH
+    # Set PYTHONPATH.
+    export PYTHONPATH=$wise_home/WISELoad/include/:$PYTHONPATH
 
-#     # Export configuration parameters.
-#     export WISE_DEBUG=$WISE_DEBUG
+    # Export configuration parameters.
+    export WISE_DEBUG=$WISE_DEBUG
 
-#     # [TODO] Load balance.
-#     mkdir -p $wise_home/logs
-#     python $wise_home/microblog_bench/client/session.py --config $wise_home/experiment/conf/workload.yml --hostname $WEB_HOSTS --port 80 --prefix microblog > $wise_home/logs/session.log
-#   " &
-#   sessions[$n_sessions]=$!
-#   let n_sessions=n_sessions+1
-# done
-# for session in ${sessions[*]}; do
-#   wait $session
-# done
-
-
-# echo "[$(date +%s)] Client tear down:"
-# for host in $CLIENT_HOSTS; do
-#   echo "  [$(date +%s)] Tearing down client on host $host"
-#   ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
-#       -o BatchMode=yes $USERNAME@$host "
-#     # Stop resource monitors.
-#     sudo pkill collectl
-#     sleep 8
-
-#     # Collect log data.
-#     mkdir logs
-#     mv $wise_home/collectl/data/coll-* logs/
-#     gzip -d logs/coll-*
-#     cat /proc/spec_connect > logs/spec_connect.csv
-#     cat /proc/spec_sendto > logs/spec_sendto.csv
-#     cat /proc/spec_recvfrom > logs/spec_recvfrom.csv
-#     tar -C logs -czf log-client-\$(echo \$(hostname) | awk -F'[-.]' '{print \$1\$2}').tar.gz ./
-
-#     # Stop event monitors.
-#     sudo rmmod spec_connect
-#     sudo rmmod spec_sendto
-#     sudo rmmod spec_recvfrom
-#   "
-# done
+    # [TODO] Load balance.
+    mkdir -p $wise_home/logs
+    python $wise_home/microblog_bench/client/session.py --config $wise_home/experiment/conf/workload.yml --hostname $WEB_HOSTS --port 80 --prefix microblog > $wise_home/logs/session.log
+  " &
+  sessions[$n_sessions]=$!
+  let n_sessions=n_sessions+1
+done
+for session in ${sessions[*]}; do
+  wait $session
+done
 
 
-# # TODO node teardown, log collection/archiving
+echo "[$(date +%s)] Client tear down:"
+for host in $CLIENT_HOSTS; do
+  echo "  [$(date +%s)] Tearing down client on host $host"
+  ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
+      -o BatchMode=yes $USERNAME@$host "
+    # Stop resource monitors.
+    sudo pkill collectl
+    sleep 8
+
+    # Collect log data.
+    mkdir logs
+    mv $wise_home/collectl/data/coll-* logs/
+    gzip -d logs/coll-*
+    cat /proc/spec_connect > logs/spec_connect.csv
+    cat /proc/spec_sendto > logs/spec_sendto.csv
+    cat /proc/spec_recvfrom > logs/spec_recvfrom.csv
+    tar -C logs -czf log-client-\$(echo \$(hostname) | awk -F'[-.]' '{print \$1\$2}').tar.gz ./
+
+    # Stop event monitors.
+    sudo rmmod spec_connect
+    sudo rmmod spec_sendto
+    sudo rmmod spec_recvfrom
+  "
+done
 
 
-# echo "[$(date +%s)] Log data collection:"
-# for host in $all_hosts; do
-#   echo "  [$(date +%s)] Collecting log data from host $host"
-#   scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no $USERNAME@$host:log-*.tar.gz .
-# done
-# tar -czf results.tar.gz log-*.tar.gz conf/
+# TODO node teardown, log collection/archiving
+
+
+echo "[$(date +%s)] Log data collection:"
+for host in $all_hosts; do
+  echo "  [$(date +%s)] Collecting log data from host $host"
+  scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no $USERNAME@$host:log-*.tar.gz .
+done
+tar -czf results.tar.gz log-*.tar.gz conf/
