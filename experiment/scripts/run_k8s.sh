@@ -84,25 +84,25 @@ for host in $all_hosts; do
     sudo swapoff -a
 
     # Install Docker.
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-    sudo add-apt-repository \
-      "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
-      $(lsb_release -cs) \
-      stable"
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=DontWarn apt-key add -
+    sudo add-apt-repository \\
+      \"deb [arch=amd64] https://download.docker.com/linux/ubuntu \\
+      \$(lsb_release -cs) \\
+      stable\"
     ## Install Docker CE.
-    sudo apt-get update && sudo apt-get install -y \
-      containerd.io=1.2.10-3 \
-      docker-ce=5:19.03.4~3-0~ubuntu-$(lsb_release -cs) \
-      docker-ce-cli=5:19.03.4~3-0~ubuntu-$(lsb_release -cs)
+    sudo apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \\
+      containerd.io=1.2.10-3 \\
+      docker-ce=5:19.03.4~3-0~ubuntu-\$(lsb_release -cs) \\
+      docker-ce-cli=5:19.03.4~3-0~ubuntu-\$(lsb_release -cs)
     # Setup daemon.
 cat <<EOF | sudo tee /etc/docker/daemon.json
 {
-  "exec-opts": ["native.cgroupdriver=systemd"],
-  "log-driver": "json-file",
-  "log-opts": {
-    "max-size": "100m"
+  \"exec-opts\": [\"native.cgroupdriver=systemd\"],
+  \"log-driver\": \"json-file\",
+  \"log-opts\": {
+    \"max-size\": \"100m\"
   },
-  "storage-driver": "overlay2"
+  \"storage-driver\": \"overlay2\"
 }
 EOF
     sudo mkdir -p /etc/systemd/system/docker.service.d
@@ -111,17 +111,25 @@ EOF
     sudo systemctl restart docker
 
     # Install kubeadm
-    curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
-    cat <<EOF | sudo tee /etc/apt/sources.list.d/kubernetes.list
-    deb https://apt.kubernetes.io/ kubernetes-xenial main
-    EOF
+    curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=DontWarn apt-key add -
+cat <<EOF | sudo tee /etc/apt/sources.list.d/kubernetes.list
+deb https://apt.kubernetes.io/ kubernetes-xenial main
+EOF
     sudo apt-get update
     sudo DEBIAN_FRONTEND=noninteractive apt-get install -y kubelet kubeadm kubectl
     sudo apt-mark hold kubelet kubeadm kubectl
 
+    # Clone wise-kubernetes.
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git
+    ssh-keyscan -H github.com >> ~/.ssh/known_hosts
+    sudo rm -rf wise-kubernetes
+    git clone git@github.com:jazevedo620/wise-kubernetes.git
+    sudo rm -rf $wise_home
+    sudo mv wise-kubernetes $fs_rootdir
+
     # Install Collectl.
-    cd $fs_rootdir
-    tar -xzf $wise_home/experiment/artifacts/collectl-4.3.1.src.tar.gz -C .
+    sudo cd $fs_rootdir
+    sudo tar -xzf $wise_home/experiment/artifacts/collectl-4.3.1.src.tar.gz -C .
     cd collectl-4.3.1
     sudo ./INSTALL
   " &
@@ -134,19 +142,9 @@ done
 
 
 echo "[$(date +%s)] Setting up control plane server on host $CONTROL_PLANE_HOST"
+join_file="$fs_rootdir/join_command"
 ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
     -o BatchMode=yes $USERNAME@$CONTROL_PLANE_HOST "
-  # Synchronize apt.
-  sudo apt-get update
-
-  # Clone wise-kubernetes.
-  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git
-  ssh-keyscan -H github.com >> ~/.ssh/known_hosts
-  rm -rf wise-kubernetes
-  git clone git@github.com:jazevedo620/wise-kubernetes.git
-  rm -rf $wise_home
-  mv wise-kubernetes $fs_rootdir
-
   # Required for flannel to operate.
   sudo sysctl net.bridge.bridge-nf-call-iptables=1
 
@@ -156,17 +154,18 @@ ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
 
   mkdir -p $HOME/.kube
   sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
-  sudo chown $(id -u):$(id -g) $HOME/.kube/config
+  sudo chown \$(id -u):\$(id -g) $HOME/.kube/config
   export KUBECONFIG=$HOME/.kube/config
 
   sudo kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/2140ac876ef134e0ed5af15c65e414cf26827915/Documentation/kube-flannel.yml
-  sudo kubeadm token create --print-join-command 2>/dev/null > $fs_rootdir/wise-kubernetes/join_command.txt
+  sudo kubeadm token create --print-join-command 2>/dev/null > $join_file
 " &
 session=$!
 wait $session
 # Retreive join command from remote node
-scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no $USERNAME@$CONTROL_PLANE_HOST:$fs_rootdir/wise-kubernetes/join_command.txt join_command.txt
-cat join_command.txt > $join_command
+scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no $USERNAME@$CONTROL_PLANE_HOST:$join_file join.txt
+join_command="$(<join.txt)"
+echo $join_command
 
 
 echo "[$(date +%s)] Joining all nodes to cluster"
@@ -281,7 +280,7 @@ for session in ${sessions[*]}; do
 done
 
 
-sleep 16
+# sleep 16
 
 
 # TODO write k8s deployment config
