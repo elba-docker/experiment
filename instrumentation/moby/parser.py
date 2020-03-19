@@ -166,7 +166,7 @@ def main(root=None):
     resolved_root = os.path.abspath(root) if root is not None else os.getcwd()
     files = get_all_files(resolved_root, "log")
     data = parse_all(files)
-    for (file, entries) in data.items():
+    for (_, entries) in data.items():
         analyze_timestamps(entries)
 
 
@@ -237,7 +237,7 @@ def load_file(filename):
         next(csv_reader)
 
         for row in csv_reader:
-            entry = LogEntry(dict(row))
+            entry = LogEntry(dict(row), entries=entries)
             entries[entry.read] = entry
     return entries
 
