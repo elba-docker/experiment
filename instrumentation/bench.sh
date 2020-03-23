@@ -24,6 +24,6 @@ docker run -it ubuntu bash -c " \
     echo __A; date +%s%N; \
     wget \"http://ipv4.download.thinkbroadband.com/10MB.zip\"; \
     echo __B; date +%s%N; \
-    sleep 2s \
+    sleep 2s; \
     echo __C; date +%s%N; \
 " > bench_run_$(date -I)_$(date +"%T.%3N").out
