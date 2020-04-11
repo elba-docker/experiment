@@ -84,9 +84,6 @@ for host in $all_hosts; do
     # Synchronize apt.
     sudo apt-get update
 
-    # Disable swap for kubelet/kubeadm to work.
-    sudo swapoff -a
-
     # Install Docker.
     curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=DontWarn apt-key add -
     sudo add-apt-repository \\
@@ -116,14 +113,13 @@ EOF
 
     # Clone wise-kubernetes.
     sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git
-    ssh-keyscan -H github.com >> ~/.ssh/known_hosts
     sudo rm -rf $wise_home
     sudo mkdir $wise_home
-    git clone git@github.com:jazevedo620/wise-kubernetes.git $wise_home
+    sudo git clone https://github.com/elba-kubernetes/experiment.git $wise_home
 
     # Install Collectl.
-    sudo cd $fs_rootdir
-    sudo tar -xzf $wise_home/experiment/artifacts/collectl-4.3.1.src.tar.gz -C .
+    cd $fs_rootdir
+    sudo tar -xzf $wise_home/artifacts/collectl-4.3.1.src.tar.gz -C .
     cd collectl-4.3.1
     sudo ./INSTALL
   " &
@@ -167,12 +163,12 @@ for host in $all_hosts; do
       -o BatchMode=yes $USERNAME@$host "
     # Activate Collectl.
     cd $wise_home
-    mkdir -p collectl/data
+    sudo mkdir -p collectl/data
     nohup sudo nice -n -1 /usr/bin/collectl -sCDmnt -i.05 -oTm -P -f collectl/data/coll > /dev/null 2>&1 &
 
     # Activate rAdvisor.
-    mkdir -p radvisor/data
-    chmod +x ./artifacts/radvisor
+    sudo mkdir -p radvisor/data
+    sudo chmod +x ./artifacts/radvisor
     nohup sudo nice -n -1 ./artifacts/radvisor run docker -d radvisor/out > /dev/null 2>&1 &
   " &
   sessions[$n_sessions]=$!
@@ -193,7 +189,7 @@ for host in $all_hosts; do
     # Run docker containers
     for i in {1..$NUM_CONTAINERS}
     do
-        docker run --cpus $CPU_PER_CONTAINER -d --memory $MEM_PER_CONTAINER ubuntu bash -c \" \\
+        sudo docker run --cpus $CPU_PER_CONTAINER -d --memory $MEM_PER_CONTAINER ubuntu bash -c \" \\
             apt-get update; \\
             apt-get install stress; \\
             stress --cpu $NUM_CPU_STRESSORS --vm $NUM_MEM_STRESSORS --vm-bytes 128M --timeout $STRESS_LENGTH
@@ -209,8 +205,8 @@ done
 
 
 # Wait for the benchmarks to complete
-sleep $STRESS_LENGTH;
-sleep 20s;
+sleep $STRESS_LENGTH
+sleep 20s
 
 
 echo "[$(date +%s)] Cleanup:"
@@ -219,8 +215,8 @@ for host in $all_hosts; do
   ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
       -o BatchMode=yes $USERNAME@$host "
     # Stop and remove all docker containers
-    sudo docker stop $(sudo docker ps -aq)
-    sudo docker rm $(sudo docker ps -aq)
+    sudo docker stop \$(sudo docker ps -aq)
+    sudo docker rm \$(sudo docker ps -aq)
     sleep 4s
     
     # Stop resource monitors.
@@ -229,12 +225,10 @@ for host in $all_hosts; do
     sleep 4s
 
     # Collect log data.
-    mkdir logs
-    mv $wise_home/collectl/data/coll-* logs/
-    gzip -d logs/coll-*
-    mv $wise_home/radvisor/stats/*.log logs/
-    gzip -d logs/*.log
-    tar -C logs -czf log-worker-\$(echo \$(hostname) | awk -F'[-.]' '{print \$1\$2}').tar.gz ./
+    sudo mkdir -p logs
+    sudo mv $wise_home/collectl/data/coll-* logs/
+    sudo mv $wise_home/radvisor/stats/*.log logs/
+    sudo tar -C logs -czf log-worker-\$(echo \$(hostname) | awk -F'[-.]' '{print \$1\$2}').tar.gz ./
   "
 done
 
