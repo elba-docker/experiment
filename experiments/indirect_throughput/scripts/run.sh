@@ -85,36 +85,17 @@ for host in $all_hosts; do
     sudo apt-get update
 
     # Install Docker.
-    if [[ \"$USE_PATCHED_DOCKER\" -eq 1 ]]; then
-      sudo apt install ./artifacts/docker-ce_19.03.8~elba~3-0~ubuntu-bionic_amd64.deb
-      sudo apt install ./artifacts/docker-ce-cli_19.03.8~elba~3-0~ubuntu-bionic_amd64.deb
-    else
-      curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=DontWarn apt-key add -
-      sudo add-apt-repository \\
-        \"deb [arch=amd64] https://download.docker.com/linux/ubuntu \\
-        \$(lsb_release -cs) \\
-        stable\"
-      ## Install Docker CE.
-      sudo apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \\
-        containerd.io=1.2.10-3 \\
-        docker-ce=5:19.03.4~3-0~ubuntu-\$(lsb_release -cs) \\
-        docker-ce-cli=5:19.03.4~3-0~ubuntu-\$(lsb_release -cs)
-    fi
-    
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=DontWarn apt-key add -
+    sudo add-apt-repository \\
+      \"deb [arch=amd64] https://download.docker.com/linux/ubuntu \\
+      \$(lsb_release -cs) \\
+      stable\"
+    ## Install Docker CE.
+    sudo apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \\
+      containerd.io=1.2.10-3 \\
+      docker-ce=5:19.03.4~3-0~ubuntu-\$(lsb_release -cs) \\
+      docker-ce-cli=5:19.03.4~3-0~ubuntu-\$(lsb_release -cs)
     # Setup daemon.
-    if [[ \"$USE_PATCHED_DOCKER\" -eq 1 ]]; then
-cat <<EOF | sudo tee /etc/docker/daemon.json
-{
-  \"exec-opts\": [\"native.cgroupdriver=systemd\"],
-  \"log-driver\": \"json-file\",
-  \"log-opts\": {
-    \"max-size\": \"100m\"
-  },
-  \"storage-driver\": \"overlay2\",
-  \"stats-interval\": \"$COLLECTION_INTERVAL\"
-}
-EOF
-    else
 cat <<EOF | sudo tee /etc/docker/daemon.json
 {
   \"exec-opts\": [\"native.cgroupdriver=systemd\"],
@@ -125,8 +106,6 @@ cat <<EOF | sudo tee /etc/docker/daemon.json
   \"storage-driver\": \"overlay2\"
 }
 EOF
-    fi
-
     sudo mkdir -p /etc/systemd/system/docker.service.d
     # Restart docker.
     sudo systemctl daemon-reload
@@ -183,19 +162,16 @@ for host in $all_hosts; do
   echo "  [$(date +%s)] Instrumenting host $host"
   ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
       -o BatchMode=yes $USERNAME@$host "
+    # Activate Collectl.
     cd $wise_home
-  
-    # Only activate collectl if enabled
-    if [[ \"$ENABLE_RADVISOR\" -eq 1 ]]; then
-      sudo mkdir -p collectl/data
-      nohup sudo nice -n -1 /usr/bin/collectl -sCDmnt -i.05 -oTm -P -f collectl/data/coll > /dev/null 2>&1 &
-    fi
+    sudo mkdir -p collectl/data
+    nohup sudo nice -n -1 /usr/bin/collectl -sCDmnt -i.05 -oTm -P -f collectl/data/coll > /dev/null 2>&1 &
 
     # Only activate rAdvisor if enabled
     if [[ \"$ENABLE_RADVISOR\" -eq 1 ]]; then
       sudo mkdir -p $radvisor_stats
       sudo chmod +x ./artifacts/radvisor
-      nohup sudo nice -n -1 ./artifacts/radvisor run docker -d $radvisor_stats -p $POLLING_INTERVAL -i ${COLLECTION_INTERVAL}ms > /dev/null 2>&1 &
+      nohup sudo nice -n -1 ./artifacts/radvisor run docker -d $radvisor_stats -p $POLLING_INTERVAL -i $COLLECTION_INTERVAL > /dev/null 2>&1 &
     fi
   " &
   sessions[$n_sessions]=$!
@@ -209,20 +185,28 @@ done
 echo "[$(date +%s)] Benchmark execution:"
 sessions=()
 n_sessions=0
+containers_file=".containers"
 for host in $all_hosts; do
   echo "  [$(date +%s)] Generating stressors on $host"
   ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
       -o BatchMode=yes $USERNAME@$host "
     # Run docker containers
+    container_ids=()
     for i in {1..$NUM_CONTAINERS}
     do
-        sudo docker run --cpus $CPU_PER_CONTAINER -d --memory $MEM_PER_CONTAINER ubuntu bash -c \" \\
-            apt-get update
-            apt-get install stress
-            sleep $PADDING
-            stress --cpu $NUM_CPU_STRESSORS --vm $NUM_MEM_STRESSORS --vm-bytes 128M --timeout $STRESS_LENGTH
-            sleep $PADDING
-        \"
+        container_ids[\$i]=$( 
+          sudo docker run --cpus $CPU_PER_CONTAINER -d --memory $MEM_PER_CONTAINER ubuntu bash -c \" \\
+              apt-get update;
+              DEBIAN_FRONTEND=noninteractive apt-get install wget -y;
+              wget \"https://github.com/elba-kubernetes/nbench/releases/download/v2-linux/nbench\";
+              chmod +x ./bench;
+              sleep $PADDING
+              ./nbench
+              sleep $PADDING
+          \"
+        )
+        # Store container ids to file
+        echo \"\$container_ids\" > $containers_file
     done
   " &
   sessions[$n_sessions]=$!
@@ -241,21 +225,19 @@ sleep 20s
 
 
 echo "[$(date +%s)] Cleanup:"
-# <https://github.com/elba-kubernetes/moby/blob/277079e650c835624a303ed3de4f90d0f6db5814/daemon/stats.go#L51>
-$patched_moby_logs="/var/logs/docker/stats"
 for host in $all_hosts; do
   echo "  [$(date +%s)] Tearing down worker on host $host"
   ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
       -o BatchMode=yes $USERNAME@$host "
+    container_ids=\"\$(<$containers_file)\"
+
     # Stop and remove all docker containers
     sudo docker stop \$(sudo docker ps -aq)
     sudo docker rm \$(sudo docker ps -aq)
     sleep 4s
     
     # Stop resource monitors.
-    if [[ \"$ENABLE_COLLECTL\" -eq 1 ]]; then
-      sudo pkill collectl
-    fi
+    sudo pkill collectl
     if [[ \"$ENABLE_RADVISOR\" -eq 1 ]]; then
       sudo pkill radvisor
     fi
@@ -263,17 +245,9 @@ for host in $all_hosts; do
 
     # Collect log data.
     sudo mkdir -p logs
-    if [[ \"$ENABLE_COLLECTL\" -eq 1 ]]; then
-      sudo mkdir -p logs/collectl
-      sudo mv $wise_home/collectl/data/coll-* logs/collectl
-    fi
+    sudo mv $wise_home/collectl/data/coll-* logs/
     if [[ \"$ENABLE_RADVISOR\" -eq 1 ]]; then
-      sudo mkdir -p logs/radvisor
-      sudo mv $radvisor_stats/*.log logs/radvisor
-    fi
-    if [[ \"$USE_PATCHED_DOCKER\" -eq 1 ]]; then
-      sudo mkdir -p logs/moby
-      sudo mv $patched_moby_logs/*.log logs/moby
+      sudo mv $radvisor_stats/*.log logs/
     fi
     sudo tar -C logs -czf log-worker-\$(echo \$(hostname) | awk -F'[-.]' '{print \$1\$2}').tar.gz ./
   "
