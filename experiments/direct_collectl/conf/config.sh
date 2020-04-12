@@ -28,7 +28,14 @@ readonly MEM_PER_CONTAINER="4g"
 readonly NUM_CPU_STRESSORS="2"
 # Number of Memory stressor process forks to spawn (via `stress`)
 readonly NUM_MEM_STRESSORS="2"
+# Padding at the beginning of experiment
+readonly PADDING="8s"
+# Length of experiment
 readonly STRESS_LENGTH="240s"
+# Period between running the polling thread to find new collection targets
+readonly POLLING_INTERVAL="6s"
+# Period between collection ticks for radvisor
+readonly COLLECTION_INTERVAL="50ms"
 
 # Either 0 or 1.
 readonly WISE_DEBUG=0

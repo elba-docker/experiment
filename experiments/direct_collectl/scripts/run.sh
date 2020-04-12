@@ -157,6 +157,7 @@ fi
 echo "[$(date +%s)] System instrumentation:"
 sessions=()
 n_sessions=0
+radvisor_stats=$wise_home/radvisor/out
 for host in $all_hosts; do
   echo "  [$(date +%s)] Instrumenting host $host"
   ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
@@ -167,9 +168,9 @@ for host in $all_hosts; do
     nohup sudo nice -n -1 /usr/bin/collectl -sCDmnt -i.05 -oTm -P -f collectl/data/coll > /dev/null 2>&1 &
 
     # Activate rAdvisor.
-    sudo mkdir -p radvisor/data
+    sudo mkdir -p $radvisor_stats
     sudo chmod +x ./artifacts/radvisor
-    nohup sudo nice -n -1 ./artifacts/radvisor run docker -d radvisor/out > /dev/null 2>&1 &
+    nohup sudo nice -n -1 ./artifacts/radvisor run docker -d $radvisor_stats -p $POLLING_INTERVAL -i $COLLECTION_INTERVAL > /dev/null 2>&1 &
   " &
   sessions[$n_sessions]=$!
   let n_sessions=n_sessions+1
@@ -192,7 +193,9 @@ for host in $all_hosts; do
         sudo docker run --cpus $CPU_PER_CONTAINER -d --memory $MEM_PER_CONTAINER ubuntu bash -c \" \\
             apt-get update; \\
             apt-get install stress; \\
+            sleep $PADDING
             stress --cpu $NUM_CPU_STRESSORS --vm $NUM_MEM_STRESSORS --vm-bytes 128M --timeout $STRESS_LENGTH
+            sleep $PADDING
         \"
     done
   " &
@@ -206,6 +209,8 @@ done
 
 # Wait for the benchmarks to complete
 sleep $STRESS_LENGTH
+sleep $PADDING
+sleep $PADDING
 sleep 20s
 
 
@@ -227,7 +232,7 @@ for host in $all_hosts; do
     # Collect log data.
     sudo mkdir -p logs
     sudo mv $wise_home/collectl/data/coll-* logs/
-    sudo mv $wise_home/radvisor/stats/*.log logs/
+    sudo mv $radvisor_stats/*.log logs/
     sudo tar -C logs -czf log-worker-\$(echo \$(hostname) | awk -F'[-.]' '{print \$1\$2}').tar.gz ./
   "
 done
