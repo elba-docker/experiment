@@ -17,6 +17,8 @@ readonly WORKER_HOSTS="<FILL IN>"
 
 # Whether to enable rAdvisor; either 0 or 1
 readonly ENABLE_RADVISOR=<FILL IN>
+# Whether to enable collectl; either 0 or 1
+readonly ENABLE_COLLECTL=<FILL IN>
 
 # Number of CPU cores to leave enabled
 readonly ENABLED_CPUS="4"
@@ -32,7 +34,7 @@ readonly MIN_TICKS_PER_ITER="240"
 # Padding at the beginning of experiment
 readonly PADDING="8s"
 # Length of experiment
-readonly STRESS_LENGTH="240s"
+readonly STRESS_LENGTH="480s"
 # Period between running the polling thread to find new collection targets
 readonly POLLING_INTERVAL="6s"
 # Period between collection ticks for radvisor

@@ -116,12 +116,14 @@ EOF
     sudo rm -rf $wise_home
     sudo mkdir $wise_home
     sudo git clone https://github.com/elba-kubernetes/experiment.git $wise_home
-
+  
     # Install Collectl.
-    cd $fs_rootdir
-    sudo tar -xzf $wise_home/artifacts/collectl-4.3.1.src.tar.gz -C .
-    cd collectl-4.3.1
-    sudo ./INSTALL
+    if [[ \"$ENABLE_COLLECTL\" -eq 1 ]]; then
+      cd $fs_rootdir
+      sudo tar -xzf $wise_home/artifacts/collectl-4.3.1.src.tar.gz -C .
+      cd collectl-4.3.1
+      sudo ./INSTALL
+    fi
   " &
   sessions[$n_sessions]=$!
   let n_sessions=n_sessions+1
@@ -162,10 +164,13 @@ for host in $all_hosts; do
   echo "  [$(date +%s)] Instrumenting host $host"
   ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
       -o BatchMode=yes $USERNAME@$host "
-    # Activate Collectl.
     cd $wise_home
-    sudo mkdir -p collectl/data
-    nohup sudo nice -n -1 /usr/bin/collectl -sCDmnt -i.05 -oTm -P -f collectl/data/coll > /dev/null 2>&1 &
+  
+    # Only activate collectl if enabled
+    if [[ \"$ENABLE_COLLECTL\" -eq 1 ]]; then
+      sudo mkdir -p collectl/data
+      nohup sudo nice -n -1 /usr/bin/collectl -sCDmnt -i.05 -oTm -P -f collectl/data/coll > /dev/null 2>&1 &
+    fi
 
     # Only activate rAdvisor if enabled
     if [[ \"$ENABLE_RADVISOR\" -eq 1 ]]; then
@@ -191,28 +196,20 @@ for host in $all_hosts; do
   ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
       -o BatchMode=yes $USERNAME@$host "
     # Run docker containers
-    container_ids=()
     for i in {1..$NUM_CONTAINERS}
     do
-        container_ids[\$i]=$( 
-          sudo docker run --cpus $CPU_PER_CONTAINER -d --memory $MEM_PER_CONTAINER ubuntu bash -c \' \\
-              apt-get update;
-              DEBIAN_FRONTEND=noninteractive apt-get install wget -y;
-              wget \"https://github.com/elba-kubernetes/nbench/releases/download/v2-linux/nbench\";
-              chmod +x ./bench;
-              
-cat \<\<EOF \| sudo tee ./COMMAND_CONF
+        container_ids=\$( 
+          sudo docker run --cpus $CPU_PER_CONTAINER -d --memory $MEM_PER_CONTAINER jazevedo6/indirect_throughput:v1.1 bash -c \" \\
+cat << EOF > ./COMMAND_CONF
 GLOBALMINTICKS=$MIN_TICKS_PER_ITER
 ALLSTATS=T
 EOF
-              sleep $PADDING
-              echo \"[\$(date +%s%N)] START\"
-              ./nbench -v -c./COMMAND_CONF
-              sleep $PADDING
-          \'
-        )
+            echo \\\"[\\\$(date +%s%N)] START\\\"
+            ./nbench -v -c./COMMAND_CONF
+            echo \\\"[\\\$(date +%s%N)] STOP\\\"
+          \")
         # Store container ids to file
-        echo \"\$container_ids\" > $containers_file
+        echo \"\$container_ids\" >> $containers_file
     done
   " &
   sessions[$n_sessions]=$!
@@ -221,7 +218,6 @@ done
 for session in ${sessions[*]}; do
   wait $session
 done
-
 
 # Wait for the benchmarks to complete
 sleep $STRESS_LENGTH
@@ -235,25 +231,39 @@ for host in $all_hosts; do
   echo "  [$(date +%s)] Tearing down worker on host $host"
   ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
       -o BatchMode=yes $USERNAME@$host "
-    container_ids=\"\$(<$containers_file)\"
-
-    # Stop and remove all docker containers
+    # Stop all docker containers
     sudo docker stop \$(sudo docker ps -aq)
-    sudo docker rm \$(sudo docker ps -aq)
     sleep 4s
     
     # Stop resource monitors.
-    sudo pkill collectl
+    if [[ \"$ENABLE_COLLECTL\" -eq 1 ]]; then
+      sudo pkill collectl
+    fi
     if [[ \"$ENABLE_RADVISOR\" -eq 1 ]]; then
       sudo pkill radvisor
     fi
     sleep 4s
 
-    # Collect log data.
     sudo mkdir -p logs
-    sudo mv $wise_home/collectl/data/coll-* logs/
+    sudo mkdir -p logs/nbench
+    while read p; do
+      echo \$p
+      echo \"\$p\"
+      sudo docker logs \$p | sudo tee \"logs/nbench/\${p}.log\"
+    done <$containers_file
+
+    # Remove all docker containers
+    sudo docker rm \$(sudo docker ps -aq)
+    sleep 4s
+
+    # Collect log data.
+    if [[ \"$ENABLE_COLLECTL\" -eq 1 ]]; then
+      sudo mkdir -p logs/collectl
+      sudo mv $wise_home/collectl/data/coll-* logs/collectl
+    fi
     if [[ \"$ENABLE_RADVISOR\" -eq 1 ]]; then
-      sudo mv $radvisor_stats/*.log logs/
+      sudo mkdir -p logs/radvisor
+      sudo mv $radvisor_stats/*.log logs/radvisor
     fi
     sudo tar -C logs -czf log-worker-\$(echo \$(hostname) | awk -F'[-.]' '{print \$1\$2}').tar.gz ./
   "
