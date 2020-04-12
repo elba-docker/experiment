@@ -10,10 +10,9 @@ readonly HOSTS_TYPE="<FILL IN>"
 # If using profile MicroblogBareMetalC8220, set with "c8220".
 readonly HARDWARE_TYPE="<FILL IN>"
 
-# Hostnames of each machine.
+# Worker hosts to run benchmark execution on
 #   Example (bare metal host): pc853.emulab.net
 #   Example (virtual machine): 10.254.3.128
-# Worker hosts to run benchmark execution on
 readonly WORKER_HOSTS="<FILL IN>"
 
 # Whether to enable rAdvisor; either 0 or 1
@@ -27,6 +26,9 @@ readonly NUM_CONTAINERS="4"
 readonly CPU_PER_CONTAINER="0.5"
 # Memory quota per container to limit the effect of the Memory stressor
 readonly MEM_PER_CONTAINER="4g"
+# Minimum number of CPU ticks (1/100ths of a second) to elapse
+# for each stress test iteration (or it scales up the difficulty)
+readonly MIN_TICKS_PER_ITER="240"
 # Padding at the beginning of experiment
 readonly PADDING="8s"
 # Length of experiment

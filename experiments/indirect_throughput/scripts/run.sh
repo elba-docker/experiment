@@ -195,15 +195,21 @@ for host in $all_hosts; do
     for i in {1..$NUM_CONTAINERS}
     do
         container_ids[\$i]=$( 
-          sudo docker run --cpus $CPU_PER_CONTAINER -d --memory $MEM_PER_CONTAINER ubuntu bash -c \" \\
+          sudo docker run --cpus $CPU_PER_CONTAINER -d --memory $MEM_PER_CONTAINER ubuntu bash -c \' \\
               apt-get update;
               DEBIAN_FRONTEND=noninteractive apt-get install wget -y;
               wget \"https://github.com/elba-kubernetes/nbench/releases/download/v2-linux/nbench\";
               chmod +x ./bench;
+              
+cat \<\<EOF \| sudo tee ./COMMAND_CONF
+GLOBALMINTICKS=$MIN_TICKS_PER_ITER
+ALLSTATS=T
+EOF
               sleep $PADDING
-              ./nbench
+              echo \"[\$(date +%s%N)] START\"
+              ./nbench -v -c./COMMAND_CONF
               sleep $PADDING
-          \"
+          \'
         )
         # Store container ids to file
         echo \"\$container_ids\" > $containers_file
