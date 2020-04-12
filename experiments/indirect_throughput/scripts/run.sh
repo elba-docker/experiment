@@ -247,8 +247,6 @@ for host in $all_hosts; do
     sudo mkdir -p logs
     sudo mkdir -p logs/nbench
     while read p; do
-      echo \$p
-      echo \"\$p\"
       sudo docker logs \$p | sudo tee \"logs/nbench/\${p}.log\"
     done <$containers_file
 
