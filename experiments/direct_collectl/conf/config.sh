@@ -20,7 +20,7 @@ readonly USE_PATCHED_DOCKER=<FILL IN>
 # Whether to enable rAdvisor; either 0 or 1
 readonly ENABLE_RADVISOR=<FILL IN>
 # Whether to enable collectl; either 0 or 1
-readonly ENABLE_COLLECTL<FILL IN>
+readonly ENABLE_COLLECTL=<FILL IN>
 
 # Number of CPU cores to leave enabled
 readonly ENABLED_CPUS="4"
