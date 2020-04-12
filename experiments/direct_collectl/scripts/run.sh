@@ -167,10 +167,12 @@ for host in $all_hosts; do
     sudo mkdir -p collectl/data
     nohup sudo nice -n -1 /usr/bin/collectl -sCDmnt -i.05 -oTm -P -f collectl/data/coll > /dev/null 2>&1 &
 
-    # Activate rAdvisor.
-    sudo mkdir -p $radvisor_stats
-    sudo chmod +x ./artifacts/radvisor
-    nohup sudo nice -n -1 ./artifacts/radvisor run docker -d $radvisor_stats -p $POLLING_INTERVAL -i $COLLECTION_INTERVAL > /dev/null 2>&1 &
+    # Only activate rAdvisor if enabled
+    if [[ \"$ENABLE_RADVISOR\" -eq 1 ]]; then
+      sudo mkdir -p $radvisor_stats
+      sudo chmod +x ./artifacts/radvisor
+      nohup sudo nice -n -1 ./artifacts/radvisor run docker -d $radvisor_stats -p $POLLING_INTERVAL -i $COLLECTION_INTERVAL > /dev/null 2>&1 &
+    fi
   " &
   sessions[$n_sessions]=$!
   let n_sessions=n_sessions+1
@@ -191,8 +193,8 @@ for host in $all_hosts; do
     for i in {1..$NUM_CONTAINERS}
     do
         sudo docker run --cpus $CPU_PER_CONTAINER -d --memory $MEM_PER_CONTAINER ubuntu bash -c \" \\
-            apt-get update; \\
-            apt-get install stress; \\
+            apt-get update
+            apt-get install stress
             sleep $PADDING
             stress --cpu $NUM_CPU_STRESSORS --vm $NUM_MEM_STRESSORS --vm-bytes 128M --timeout $STRESS_LENGTH
             sleep $PADDING
@@ -226,13 +228,17 @@ for host in $all_hosts; do
     
     # Stop resource monitors.
     sudo pkill collectl
-    sudo pkill radvisor
+    if [[ \"$ENABLE_RADVISOR\" -eq 1 ]]; then
+      sudo pkill radvisor
+    fi
     sleep 4s
 
     # Collect log data.
     sudo mkdir -p logs
     sudo mv $wise_home/collectl/data/coll-* logs/
-    sudo mv $radvisor_stats/*.log logs/
+    if [[ \"$ENABLE_RADVISOR\" -eq 1 ]]; then
+      sudo mv $radvisor_stats/*.log logs/
+    fi
     sudo tar -C logs -czf log-worker-\$(echo \$(hostname) | awk -F'[-.]' '{print \$1\$2}').tar.gz ./
   "
 done

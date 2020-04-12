@@ -16,6 +16,9 @@ readonly HARDWARE_TYPE="<FILL IN>"
 # Worker hosts to run benchmark execution on
 readonly WORKER_HOSTS="<FILL IN>"
 
+# Whether to enable rAdvisor; either 0 or 1
+readonly ENABLE_RADVISOR=<FILL IN>
+
 # Number of CPU cores to leave enabled
 readonly ENABLED_CPUS="4"
 # Number of containers to spawn as a part of the benchmark
@@ -36,6 +39,3 @@ readonly STRESS_LENGTH="240s"
 readonly POLLING_INTERVAL="6s"
 # Period between collection ticks for radvisor
 readonly COLLECTION_INTERVAL="50ms"
-
-# Either 0 or 1.
-readonly WISE_DEBUG=0
