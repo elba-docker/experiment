@@ -34,7 +34,7 @@ readonly MIN_TICKS_PER_ITER="240"
 # Padding at the beginning of experiment
 readonly PADDING="8s"
 # Length of experiment
-readonly STRESS_LENGTH="480s"
+readonly STRESS_LENGTH="900s"
 # Period between running the polling thread to find new collection targets
 readonly POLLING_INTERVAL="6s"
 # Period between collection ticks for radvisor
