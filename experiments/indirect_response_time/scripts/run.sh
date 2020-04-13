@@ -55,19 +55,6 @@ declare -A host_log_names=(
 )
 
 
-# <https://stackoverflow.com/a/20473191>
-function list_include_item {
-  local list="$1"
-  local item="$2"
-  if [[ $list =~ (^|[[:space:]])"$item"($|[[:space:]]) ]] ; then
-    # yes, list include item
-    result=0
-  else
-    result=1
-  fi
-  return $result
-}
-
 echo "[$(date +%s)] Socket setup:"
 for host in $all_hosts; do
   echo "  [$(date +%s)] Limiting socket backlog in host $host"
@@ -133,10 +120,10 @@ for host in $all_hosts; do
   echo "  [$(date +%s)] Setting up common software in host $host"
 
   # Set membership flags
-  is_docker=$(`list_include_item "$docker_hosts" "$host"`)
-  is_docker_instrumented=$(`list_include_item "$container_instrumented_hosts" "$host"`)
-  is_instrumented=$(`list_include_item "$instrumented_hosts" "$host"`)
-  is_web=$(`list_include_item "$WEB_HOSTS" "$host"`)
+  if [[ " $docker_hosts " =~ .*\ $host\ .* ]]; then is_docker=1; else is_docker=0; fi
+  if [[ " $container_instrumented_hosts " =~ .*\ $host\ .* ]]; then is_docker_instrumented=1; else is_docker_instrumented=0; fi
+  if [[ " $instrumented_hosts " =~ .*\ $host\ .* ]]; then is_instrumented=1; else is_instrumented=0; fi
+  if [[ " $WEB_HOSTS " =~ .*\ $host\ .* ]]; then is_web=1; else is_web=0; fi
   echo "$host ; $is_docker ; $is_docker_instrumented ; $is_instrumented ; $is_web ;"
 
   scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no ~/.ssh/id_rsa $USERNAME@$host:.ssh
@@ -477,8 +464,8 @@ for host in $all_hosts; do
   echo "  [$(date +%s)] Instrumenting host $host"
 
   # Set membership flags
-  is_docker_instrumented=$(`list_include_item "$container_instrumented_hosts" "$host"`)
-  is_instrumented=$(`list_include_item "$instrumented_hosts" "$host"`)
+  if [[ " $container_instrumented_hosts " =~ .*\ $host\ .* ]]; then is_docker_instrumented=1; else is_docker_instrumented=0; fi
+  if [[ " $instrumented_hosts " =~ .*\ $host\ .* ]]; then is_instrumented=1; else is_instrumented=0; fi
 
   ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
       -o BatchMode=yes $USERNAME@$host "
@@ -569,10 +556,10 @@ for K in "${!host_log_names[@]}"; do
     echo "    [$(date +%s)] Cleaning up host class \"$K\" on $host"
 
     # Set membership flags
-    is_docker=$(`list_include_item "$docker_hosts" "$host"`)
-    is_docker_instrumented=$(`list_include_item "$container_instrumented_hosts" "$host"`)
-    is_instrumented=$(`list_include_item "$instrumented_hosts" "$host"`)
-    is_web=$(`list_include_item "$WEB_HOSTS" "$host"`)
+    if [[ " $docker_hosts " =~ .*\ $host\ .* ]]; then is_docker=1; else is_docker=0; fi
+    if [[ " $container_instrumented_hosts " =~ .*\ $host\ .* ]]; then is_docker_instrumented=1; else is_docker_instrumented=0; fi
+    if [[ " $instrumented_hosts " =~ .*\ $host\ .* ]]; then is_instrumented=1; else is_instrumented=0; fi
+    if [[ " $WEB_HOSTS " =~ .*\ $host\ .* ]]; then is_web=1; else is_web=0; fi
 
     ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
         -o BatchMode=yes $USERNAME@$host "
@@ -604,6 +591,7 @@ for K in "${!host_log_names[@]}"; do
         fi
 
         # Collect log data.
+        sudo mkdir -p logs
         if [[ \"$is_instrumented\" -eq 1 ]]; then
           if [[ \"$ENABLE_COLLECTL\" -eq 1 ]]; then
             sudo mkdir -p logs/collectl
