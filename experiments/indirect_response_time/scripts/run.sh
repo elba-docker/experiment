@@ -137,6 +137,7 @@ for host in $all_hosts; do
   is_docker_instrumented=$(`list_include_item "$container_instrumented_hosts" "$host"`)
   is_instrumented=$(`list_include_item "$instrumented_hosts" "$host"`)
   is_web=$(`list_include_item "$WEB_HOSTS" "$host"`)
+  echo "$host ; $is_docker ; $is_docker_instrumented ; $is_instrumented ; $is_web ;"
 
   scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no ~/.ssh/id_rsa $USERNAME@$host:.ssh
   ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o \
@@ -210,8 +211,8 @@ EOF
       cd thrift-0.13.0
       ./bootstrap.sh
       ./configure --without-python
-      make
-      sudo make install
+      make > /dev/null 2>&1
+      sudo make install > /dev/null 2>&1
 
       # Set up Python 3 environment.
       sudo DEBIAN_FRONTEND=noninteractive apt-get install -y virtualenv
@@ -306,7 +307,7 @@ for K in "${!microservice_hosts[@]}"; do
         sudo docker run -d -p ${port}:${port} harvardbiodept/${image}:v1.0 $port $threadpool_size $POSTGRESQL_HOST
     " &
     wait $!
-  fi
+  done
 done
 
 
@@ -629,7 +630,7 @@ for K in "${!host_log_names[@]}"; do
         sudo tar -C logs -czf log-${log_name}-\$(echo \$(hostname) | awk -F'[-.]' '{print \$1\$2}').tar.gz ./
     " &
     wait $!
-  fi
+  done
 done
 
 
