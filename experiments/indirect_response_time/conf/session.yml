@@ -1,0 +1,58 @@
+- action: sign_up
+  delayDistribution:
+    type: gaussian
+    mean: 5.0
+    sd: 1
+  transitionWeights:
+    create_post: .25
+    view_recent_posts: .75
+
+- action: create_post
+  delayDistribution:
+    type: gaussian
+    mean: 3.0
+    sd: 1
+  transitionWeights:
+    create_post: .1
+    view_inbox: .5
+    view_recent_posts: .4
+
+- action: endorse_post
+  delayDistribution:
+    type: gaussian
+    mean: 1.0
+    sd: .2
+  transitionWeights:
+    create_post: .1
+    view_inbox: .5
+    view_recent_posts: .4
+
+- action: view_inbox
+  delayDistribution:
+    type: gaussian
+    mean: 3.0
+    sd: 1.0
+  transitionWeights:
+    create_post: .45
+    endorse_post: .45
+    view_recent_posts: .1
+
+- action: view_recent_posts
+  delayDistribution:
+    type: gaussian
+    mean: 3.0
+    sd: 1.0
+  transitionWeights:
+    create_post: .30
+    endorse_post: .35
+    subscribe_to_user: .35
+
+- action: subscribe_to_user
+  delayDistribution:
+    type: gaussian
+    mean: 5.0
+    sd: 1.0
+  transitionWeights:
+    create_post: .45
+    view_inbox: .45
+    view_recent_posts: .1
