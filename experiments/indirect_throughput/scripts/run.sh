@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Direct overhead measurement via running collectl side-by-side with radvisor
+# Indirect overhead measurement via examining synthetic CPU throughput with radvisor running in the background
 # Repeats the experiment according to the number of hosts given in the $WORKER_HOSTS variable
 # from ./conf/config.sh
 
@@ -84,18 +84,47 @@ for host in $all_hosts; do
     # Synchronize apt.
     sudo apt-get update
 
-    # Install Docker.
+    # Clone wise-kubernetes.
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git
+    sudo rm -rf $wise_home
+    sudo mkdir $wise_home
+    sudo git clone https://github.com/elba-kubernetes/experiment.git $wise_home
+
     curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=DontWarn apt-key add -
     sudo add-apt-repository \\
       \"deb [arch=amd64] https://download.docker.com/linux/ubuntu \\
       \$(lsb_release -cs) \\
       stable\"
-    ## Install Docker CE.
-    sudo apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \\
-      containerd.io=1.2.10-3 \\
-      docker-ce=5:19.03.4~3-0~ubuntu-\$(lsb_release -cs) \\
-      docker-ce-cli=5:19.03.4~3-0~ubuntu-\$(lsb_release -cs)
+    sudo apt-get update
+
+    # Install Docker.
+    if [[ \"$USE_PATCHED_DOCKER\" -eq 1 ]]; then
+      sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \\
+        containerd.io \\
+        $wise_home/artifacts/docker-ce_19.03.8~elba~3-0~ubuntu-bionic_amd64.deb \\
+        $wise_home/artifacts/docker-ce-cli_19.03.8~elba~3-0~ubuntu-bionic_amd64.deb
+    else
+      ## Install Docker CE.
+      sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \\
+        containerd.io=1.2.10-3 \\
+        docker-ce=5:19.03.4~3-0~ubuntu-\$(lsb_release -cs) \\
+        docker-ce-cli=5:19.03.4~3-0~ubuntu-\$(lsb_release -cs)
+    fi
+    
     # Setup daemon.
+    if [[ \"$USE_PATCHED_DOCKER\" -eq 1 ]]; then
+cat <<EOF | sudo tee /etc/docker/daemon.json
+{
+  \"exec-opts\": [\"native.cgroupdriver=systemd\"],
+  \"log-driver\": \"json-file\",
+  \"log-opts\": {
+    \"max-size\": \"100m\"
+  },
+  \"storage-driver\": \"overlay2\",
+  \"stats-interval\": $COLLECTION_INTERVAL
+}
+EOF
+    else
 cat <<EOF | sudo tee /etc/docker/daemon.json
 {
   \"exec-opts\": [\"native.cgroupdriver=systemd\"],
@@ -106,16 +135,12 @@ cat <<EOF | sudo tee /etc/docker/daemon.json
   \"storage-driver\": \"overlay2\"
 }
 EOF
+    fi
+
     sudo mkdir -p /etc/systemd/system/docker.service.d
     # Restart docker.
     sudo systemctl daemon-reload
     sudo systemctl restart docker
-
-    # Clone wise-kubernetes.
-    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git
-    sudo rm -rf $wise_home
-    sudo mkdir $wise_home
-    sudo git clone https://github.com/elba-kubernetes/experiment.git $wise_home
   
     # Install Collectl.
     if [[ \"$ENABLE_COLLECTL\" -eq 1 ]]; then
@@ -176,7 +201,7 @@ for host in $all_hosts; do
     if [[ \"$ENABLE_RADVISOR\" -eq 1 ]]; then
       sudo mkdir -p $radvisor_stats
       sudo chmod +x ./artifacts/radvisor
-      nohup sudo nice -n -1 ./artifacts/radvisor run docker -d $radvisor_stats -p $POLLING_INTERVAL -i $COLLECTION_INTERVAL > /dev/null 2>&1 &
+      nohup sudo nice -n -1 ./artifacts/radvisor run docker -d $radvisor_stats -p $POLLING_INTERVAL -i ${COLLECTION_INTERVAL}ms > /dev/null 2>&1 &
     fi
   " &
   sessions[$n_sessions]=$!
@@ -227,6 +252,8 @@ sleep 20s
 
 
 echo "[$(date +%s)] Cleanup:"
+# <https://github.com/elba-kubernetes/moby/blob/277079e650c835624a303ed3de4f90d0f6db5814/daemon/stats.go#L51>
+patched_moby_logs="/var/logs/docker/stats"
 for host in $all_hosts; do
   echo "  [$(date +%s)] Tearing down worker on host $host"
   ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
@@ -262,6 +289,10 @@ for host in $all_hosts; do
     if [[ \"$ENABLE_RADVISOR\" -eq 1 ]]; then
       sudo mkdir -p logs/radvisor
       sudo mv $radvisor_stats/*.log logs/radvisor
+    fi
+    if [[ \"$USE_PATCHED_DOCKER\" -eq 1 ]]; then
+      sudo mkdir -p logs/moby
+      sudo mv $patched_moby_logs/*.log logs/moby
     fi
     sudo tar -C logs -czf log-worker-\$(echo \$(hostname) | awk -F'[-.]' '{print \$1\$2}').tar.gz ./
   "

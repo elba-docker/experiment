@@ -15,6 +15,8 @@ readonly HARDWARE_TYPE="<FILL IN>"
 #   Example (virtual machine): 10.254.3.128
 readonly WORKER_HOSTS="<FILL IN>"
 
+# Whether to use the patched docker version; either 0 or 1
+readonly USE_PATCHED_DOCKER=<FILL IN>
 # Whether to enable rAdvisor; either 0 or 1
 readonly ENABLE_RADVISOR=<FILL IN>
 # Whether to enable collectl; either 0 or 1
@@ -37,5 +39,5 @@ readonly PADDING="8s"
 readonly STRESS_LENGTH="900s"
 # Period between running the polling thread to find new collection targets
 readonly POLLING_INTERVAL="6s"
-# Period between collection ticks for radvisor
-readonly COLLECTION_INTERVAL="50ms"
+# Period (ms) between collection ticks for radvisor/moby
+readonly COLLECTION_INTERVAL="50"
