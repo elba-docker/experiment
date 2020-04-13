@@ -46,9 +46,9 @@ class BlkioEntry(DataClass):
         #print()
 
 
-class CpuUsage(DataClass):
+class BlkioEntry(DataClass):
     """
-    CPU Usage stats from rAdvisor log entries
+    Blkio Linux stats from rAdvisor log entries
     """
 
     def __init__(self, row):
@@ -149,11 +149,6 @@ def parse_blkio(raw):
     """
 
     split = [entry.strip() for entry in raw.split(",")]
-    # for entry in split:
-    #     if (len(entry.split(" ")) == 3 and "Total" not in entry):
-    #         print(entry)
-
-
     return [BlkioEntry(entry) for entry in split if len(entry.split(" ")) == 3 and "Total" not in entry]
 
 
