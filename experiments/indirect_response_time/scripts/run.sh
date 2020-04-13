@@ -276,15 +276,15 @@ for host in $WEB_HOSTS; do
   ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
       -o BatchMode=yes $USERNAME@$host "
       # auth microservice schema
-      $wise_home/WISEServices/auth/scripts/setup_database.sh $POSTGRESQL_HOST
+      sudo $wise_home/WISEServices/auth/scripts/setup_database.sh $POSTGRESQL_HOST
       # inbox microservice schema
-      $wise_home/WISEServices/inbox/scripts/setup_database.sh $POSTGRESQL_HOST
+      sudo $wise_home/WISEServices/inbox/scripts/setup_database.sh $POSTGRESQL_HOST
       # queue microservice schema
-      $wise_home/WISEServices/queue_/scripts/setup_database.sh $POSTGRESQL_HOST
+      sudo $wise_home/WISEServices/queue_/scripts/setup_database.sh $POSTGRESQL_HOST
       # subscription microservice schema
-      $wise_home/WISEServices/sub/scripts/setup_database.sh $POSTGRESQL_HOST
+      sudo $wise_home/WISEServices/sub/scripts/setup_database.sh $POSTGRESQL_HOST
       # microblog microservice schema
-      $wise_home/microblog_bench/services/microblog/scripts/setup_database.sh $POSTGRESQL_HOST
+      sudo $wise_home/microblog_bench/services/microblog/scripts/setup_database.sh $POSTGRESQL_HOST
   " &
   # Only execute for the first web host
   wait $!
