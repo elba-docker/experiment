@@ -590,9 +590,9 @@ for K in "${!host_log_names[@]}"; do
           fi
 
           sudo mkdir -p logs/milliscope
-          cat /proc/spec_connect > logs/milliscope/spec_connect.csv
-          cat /proc/spec_sendto > logs/milliscope/spec_sendto.csv
-          cat /proc/spec_recvfrom > logs/milliscope/spec_recvfrom.csv
+          sudo mv /proc/spec_connect logs/milliscope/spec_connect.csv
+          sudo mv /proc/spec_sendto logs/milliscope/spec_sendto.csv
+          sudo mv /proc/spec_recvfrom logs/milliscope/spec_recvfrom.csv
         fi
 
         if [[ \"$is_docker_instrumented\" -eq 1 ]]; then
