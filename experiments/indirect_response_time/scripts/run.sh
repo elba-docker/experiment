@@ -161,7 +161,7 @@ for host in $all_hosts; do
       fi
       
       # Setup daemon.
-      if [[ \"$USE_PATCHED_DOCKER\" -eq 1 ]] && [[ \"$instrumented_hosts\" -eq 1 ]]; then
+      if [[ \"$USE_PATCHED_DOCKER\" -eq 1 ]] && [[ \"$is_instrumented\" -eq 1 ]]; then
 cat <<EOF | sudo tee /etc/docker/daemon.json
 {
   \"exec-opts\": [\"native.cgroupdriver=systemd\"],
@@ -243,9 +243,9 @@ for host in $POSTGRESQL_HOST; do
 
     export POSTGRES_MAXCONNECTIONS="$POSTGRES_MAXCONNECTIONS"
 
-    $wise_home/microblog_bench/postgres/scripts/start_postgres.sh
+    sudo $wise_home/microblog_bench/postgres/scripts/start_postgres.sh
     sudo -u postgres psql -c \"CREATE ROLE $USERNAME WITH LOGIN CREATEDB SUPERUSER\"
-    createdb microblog_bench
+    sudo createdb microblog_bench
   " &
   sessions[$n_sessions]=$!
   let n_sessions=n_sessions+1
@@ -325,18 +325,18 @@ for host in $WEB_HOSTS; do
 
     # Install Python dependencies.
     source $wise_home/.env/bin/activate
-    pip install flask
-    pip install flask_httpauth
-    pip install pyyaml
-    pip install thrift
+    sudo pip install flask
+    sudo pip install flask_httpauth
+    sudo pip install pyyaml
+    sudo pip install thrift
     deactivate
 
     # Generate Thrift code.
-    $wise_home/WISEServices/auth/scripts/gen_code.sh py
-    $wise_home/WISEServices/inbox/scripts/gen_code.sh py
-    $wise_home/WISEServices/queue_/scripts/gen_code.sh py
-    $wise_home/WISEServices/sub/scripts/gen_code.sh py
-    $wise_home/microblog_bench/services/microblog/scripts/gen_code.sh py
+    sudo $wise_home/WISEServices/auth/scripts/gen_code.sh py
+    sudo $wise_home/WISEServices/inbox/scripts/gen_code.sh py
+    sudo $wise_home/WISEServices/queue_/scripts/gen_code.sh py
+    sudo $wise_home/WISEServices/sub/scripts/gen_code.sh py
+    sudo $wise_home/microblog_bench/services/microblog/scripts/gen_code.sh py
 
     # Export configuration parameters.
     export APACHE_WSGIDIRPATH="$APACHE_WSGIDIRPATH"
@@ -356,7 +356,7 @@ for host in $WEB_HOSTS; do
     export SUB_HOSTS=$SUB_HOSTS
     export SUB_PORT=$SUB_PORT
 
-    $wise_home/microblog_bench/web/scripts/start_server.sh apache
+    sudo $wise_home/microblog_bench/web/scripts/start_server.sh apache
   " &
   sessions[$n_sessions]=$!
   let n_sessions=n_sessions+1
@@ -376,13 +376,13 @@ for host in $WORKER_HOSTS; do
       -o BatchMode=yes $USERNAME@$host "
     # Install Python dependencies.
     source $wise_home/.env/bin/activate
-    pip install pyyaml
-    pip install thrift
+    sudo pip install pyyaml
+    sudo pip install thrift
 
     # Generate Thrift code.
-    $wise_home/WISEServices/inbox/scripts/gen_code.sh py
-    $wise_home/WISEServices/queue_/scripts/gen_code.sh py
-    $wise_home/WISEServices/sub/scripts/gen_code.sh py
+    sudo $wise_home/WISEServices/inbox/scripts/gen_code.sh py
+    sudo $wise_home/WISEServices/queue_/scripts/gen_code.sh py
+    sudo $wise_home/WISEServices/sub/scripts/gen_code.sh py
 
     # Export configuration parameters.
     export NUM_WORKERS=$NUM_WORKERS
@@ -395,7 +395,7 @@ for host in $WORKER_HOSTS; do
     export WISE_HOME=$wise_home
     export WISE_DEBUG=$WISE_DEBUG
 
-    $wise_home/microblog_bench/worker/scripts/start_workers.sh
+    sudo $wise_home/microblog_bench/worker/scripts/start_workers.sh
   " &
   sessions[$n_sessions]=$!
   let n_sessions=n_sessions+1
@@ -416,14 +416,14 @@ for host in $CLIENT_HOSTS; do
       -o BatchMode=yes $USERNAME@$host "
     # Install Python dependencies.
     source $wise_home/.env/bin/activate
-    pip install click
-    pip install requests
-    pip install pyyaml
+    sudo pip install click
+    sudo pip install requests
+    sudo pip install pyyaml
     deactivate
 
     # Render workload.yml.
     WISEHOME=${wise_home//\//\\\\\/}
-    sed -i \"s/{{WISEHOME}}/\$WISEHOME/g\" $wise_home/experiments/indirect_response_time/conf/workload.yml
+    sudo sed -i \"s/{{WISEHOME}}/\$WISEHOME/g\" $wise_home/experiments/indirect_response_time/conf/workload.yml
   " &
   sessions[$n_sessions]=$!
   let n_sessions=n_sessions+1
@@ -474,13 +474,13 @@ for host in $all_hosts; do
     if [[ \"$is_instrumented\" -eq 1 ]]; then
       # Activate WISETrace.
       cd $wise_home/WISETrace/kernel_modules/connect
-      make
+      sudo make
       sudo insmod spec_connect.ko
       cd $wise_home/WISETrace/kernel_modules/sendto
-      make
+      sudo make
       sudo insmod spec_sendto.ko
       cd $wise_home/WISETrace/kernel_modules/recvfrom
-      make
+      sudo make
       sudo insmod spec_recvfrom.ko
       cd $wise_home
 
@@ -527,8 +527,8 @@ for host in $CLIENT_HOSTS; do
     export WISE_DEBUG=$WISE_DEBUG
 
     # Load balance.
-    mkdir -p $wise_home/logs
-    python $wise_home/microblog_bench/client/session.py --config $wise_home/experiments/indirect_response_time/conf/workload.yml --hostname $WEB_HOSTS --port 80 --prefix microblog > $wise_home/logs/session.log
+    sudo mkdir -p $wise_home/logs
+    sudo python $wise_home/microblog_bench/client/session.py --config $wise_home/experiments/indirect_response_time/conf/workload.yml --hostname $WEB_HOSTS --port 80 --prefix microblog > $wise_home/logs/session.log
   " &
   sessions[$n_sessions]=$!
   let n_sessions=n_sessions+1
@@ -536,15 +536,6 @@ done
 for session in ${sessions[*]}; do
   wait $session
 done
-
-
-# TODO tearing down
-# TODO log collection
-
-
-echo "[$(date +%s)] Cleanup:"
-# <https://github.com/elba-kubernetes/moby/blob/277079e650c835624a303ed3de4f90d0f6db5814/daemon/stats.go#L51>
-patched_moby_logs="/var/logs/docker/stats"
 
 
 echo "[$(date +%s)] Cleanup:"
