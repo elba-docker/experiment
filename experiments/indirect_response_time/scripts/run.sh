@@ -215,7 +215,7 @@ EOF
 
       # Set up Python 3 environment.
       sudo DEBIAN_FRONTEND=noninteractive apt-get install -y virtualenv
-      virtualenv -p `which python3` $wise_home/.env
+      sudo virtualenv -p `which python3` $wise_home/.env
     fi
 
     # Install the postgres client on the web server to use it to initialize the schema later
