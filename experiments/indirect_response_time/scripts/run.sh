@@ -306,7 +306,7 @@ for K in "${!microservice_hosts[@]}"; do
         sudo docker run -d -p ${port}:${port} harvardbiodept/${image}:v1.0 $port $threadpool_size $POSTGRESQL_HOST
     " &
     wait $!
-  fi
+  done
 done
 
 
@@ -629,7 +629,7 @@ for K in "${!host_log_names[@]}"; do
         sudo tar -C logs -czf log-${log_name}-\$(echo \$(hostname) | awk -F'[-.]' '{print \$1\$2}').tar.gz ./
     " &
     wait $!
-  fi
+  done
 done
 
 
