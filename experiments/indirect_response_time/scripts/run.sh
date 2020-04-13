@@ -138,6 +138,9 @@ for host in $all_hosts; do
     sudo mkdir $wise_home
     sudo git clone https://github.com/elba-kubernetes/experiment.git $wise_home
 
+    # Take ownership of the wise-home directory
+    sudo chown -R $USERNAME $wise_home
+
     if [[ \"$is_docker\" -eq 1 ]]; then
       curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=DontWarn apt-key add -
       sudo add-apt-repository \\
@@ -193,11 +196,12 @@ EOF
     else 
       # Install standard non-Docker software
       # Install Thrift
-      sudo DEBIAN_FRONTEND=noninteractive apt-get install -y automake bison flex g++ git libboost-all-dev libevent-dev libssl-dev libtool make pkg-config
+      sudo DEBIAN_FRONTEND=noninteractive apt-get install -y automake bison flex g++ git libboost-all-dev libevent-dev libssl-dev libtool make pkg-config > /dev/null 2>&1
       tar -xzf $wise_home/artifacts/thrift-0.13.0.tar.gz -C .
       cd thrift-0.13.0
-      ./bootstrap.sh
-      ./configure --without-python
+      echo \"[\$(date +%s)] Installing thrift 0.13.0 on $host\"
+      ./bootstrap.sh > /dev/null 2>&1
+      ./configure --without-python > /dev/null 2>&1
       make > /dev/null 2>&1
       sudo make install > /dev/null 2>&1
 
@@ -243,9 +247,9 @@ for host in $POSTGRESQL_HOST; do
 
     export POSTGRES_MAXCONNECTIONS="$POSTGRES_MAXCONNECTIONS"
 
-    sudo $wise_home/microblog_bench/postgres/scripts/start_postgres.sh
+    $wise_home/microblog_bench/postgres/scripts/start_postgres.sh
     sudo -u postgres psql -c \"CREATE ROLE $USERNAME WITH LOGIN CREATEDB SUPERUSER\"
-    sudo createdb microblog_bench
+    createdb microblog_bench
   " &
   sessions[$n_sessions]=$!
   let n_sessions=n_sessions+1
@@ -325,18 +329,18 @@ for host in $WEB_HOSTS; do
 
     # Install Python dependencies.
     source $wise_home/.env/bin/activate
-    sudo pip install flask
-    sudo pip install flask_httpauth
-    sudo pip install pyyaml
-    sudo pip install thrift
+    pip install flask
+    pip install flask_httpauth
+    pip install pyyaml
+    pip install thrift
     deactivate
 
     # Generate Thrift code.
-    sudo $wise_home/WISEServices/auth/scripts/gen_code.sh py
-    sudo $wise_home/WISEServices/inbox/scripts/gen_code.sh py
-    sudo $wise_home/WISEServices/queue_/scripts/gen_code.sh py
-    sudo $wise_home/WISEServices/sub/scripts/gen_code.sh py
-    sudo $wise_home/microblog_bench/services/microblog/scripts/gen_code.sh py
+    $wise_home/WISEServices/auth/scripts/gen_code.sh py
+    $wise_home/WISEServices/inbox/scripts/gen_code.sh py
+    $wise_home/WISEServices/queue_/scripts/gen_code.sh py
+    $wise_home/WISEServices/sub/scripts/gen_code.sh py
+    $wise_home/microblog_bench/services/microblog/scripts/gen_code.sh py
 
     # Export configuration parameters.
     export APACHE_WSGIDIRPATH="$APACHE_WSGIDIRPATH"
@@ -356,7 +360,7 @@ for host in $WEB_HOSTS; do
     export SUB_HOSTS=$SUB_HOSTS
     export SUB_PORT=$SUB_PORT
 
-    sudo $wise_home/microblog_bench/web/scripts/start_server.sh apache
+    $wise_home/microblog_bench/web/scripts/start_server.sh apache
   " &
   sessions[$n_sessions]=$!
   let n_sessions=n_sessions+1
@@ -376,13 +380,13 @@ for host in $WORKER_HOSTS; do
       -o BatchMode=yes $USERNAME@$host "
     # Install Python dependencies.
     source $wise_home/.env/bin/activate
-    sudo pip install pyyaml
-    sudo pip install thrift
+    pip install pyyaml
+    pip install thrift
 
     # Generate Thrift code.
-    sudo $wise_home/WISEServices/inbox/scripts/gen_code.sh py
-    sudo $wise_home/WISEServices/queue_/scripts/gen_code.sh py
-    sudo $wise_home/WISEServices/sub/scripts/gen_code.sh py
+    $wise_home/WISEServices/inbox/scripts/gen_code.sh py
+    $wise_home/WISEServices/queue_/scripts/gen_code.sh py
+    $wise_home/WISEServices/sub/scripts/gen_code.sh py
 
     # Export configuration parameters.
     export NUM_WORKERS=$NUM_WORKERS
@@ -395,7 +399,7 @@ for host in $WORKER_HOSTS; do
     export WISE_HOME=$wise_home
     export WISE_DEBUG=$WISE_DEBUG
 
-    sudo $wise_home/microblog_bench/worker/scripts/start_workers.sh
+    $wise_home/microblog_bench/worker/scripts/start_workers.sh
   " &
   sessions[$n_sessions]=$!
   let n_sessions=n_sessions+1
@@ -416,14 +420,14 @@ for host in $CLIENT_HOSTS; do
       -o BatchMode=yes $USERNAME@$host "
     # Install Python dependencies.
     source $wise_home/.env/bin/activate
-    sudo pip install click
-    sudo pip install requests
-    sudo pip install pyyaml
+    pip install click
+    pip install requests
+    pip install pyyaml
     deactivate
 
     # Render workload.yml.
     WISEHOME=${wise_home//\//\\\\\/}
-    sudo sed -i \"s/{{WISEHOME}}/\$WISEHOME/g\" $wise_home/experiments/indirect_response_time/conf/workload.yml
+    sed -i \"s/{{WISEHOME}}/\$WISEHOME/g\" $wise_home/experiments/indirect_response_time/conf/workload.yml
   " &
   sessions[$n_sessions]=$!
   let n_sessions=n_sessions+1
@@ -474,19 +478,19 @@ for host in $all_hosts; do
     if [[ \"$is_instrumented\" -eq 1 ]]; then
       # Activate WISETrace.
       cd $wise_home/WISETrace/kernel_modules/connect
-      sudo make
+      make
       sudo insmod spec_connect.ko
       cd $wise_home/WISETrace/kernel_modules/sendto
-      sudo make
+      make
       sudo insmod spec_sendto.ko
       cd $wise_home/WISETrace/kernel_modules/recvfrom
-      sudo make
+      make
       sudo insmod spec_recvfrom.ko
       cd $wise_home
 
       # Only activate collectl if enabled
       if [[ \"$ENABLE_COLLECTL\" -eq 1 ]]; then
-        sudo mkdir -p collectl/data
+        mkdir -p collectl/data
         nohup sudo nice -n -1 /usr/bin/collectl -sCDmnt -i.05 -oTm -P -f collectl/data/coll > /dev/null 2>&1 &
       fi
     fi
@@ -494,8 +498,8 @@ for host in $all_hosts; do
     # Only activate rAdvisor if enabled
     if [[ \"$is_docker_instrumented\" -eq 1 ]]; then
       if [[ \"$ENABLE_RADVISOR\" -eq 1 ]]; then
-        sudo mkdir -p $radvisor_stats
-        sudo chmod +x ./artifacts/radvisor
+        mkdir -p $radvisor_stats
+        chmod +x ./artifacts/radvisor
         nohup sudo nice -n -1 ./artifacts/radvisor run docker -d $radvisor_stats -p $POLLING_INTERVAL -i ${COLLECTION_INTERVAL}ms > /dev/null 2>&1 &
       fi
     fi
@@ -527,8 +531,8 @@ for host in $CLIENT_HOSTS; do
     export WISE_DEBUG=$WISE_DEBUG
 
     # Load balance.
-    sudo mkdir -p $wise_home/logs
-    sudo python $wise_home/microblog_bench/client/session.py --config $wise_home/experiments/indirect_response_time/conf/workload.yml --hostname $WEB_HOSTS --port 80 --prefix microblog > $wise_home/logs/session.log
+    mkdir -p $wise_home/logs
+    python $wise_home/microblog_bench/client/session.py --config $wise_home/experiments/indirect_response_time/conf/workload.yml --hostname $WEB_HOSTS --port 80 --prefix microblog > $wise_home/logs/session.log
   " &
   sessions[$n_sessions]=$!
   let n_sessions=n_sessions+1
@@ -582,31 +586,31 @@ for K in "${!host_log_names[@]}"; do
         fi
 
         # Collect log data.
-        sudo mkdir -p logs
+        mkdir -p logs
         if [[ \"$is_instrumented\" -eq 1 ]]; then
           if [[ \"$ENABLE_COLLECTL\" -eq 1 ]]; then
-            sudo mkdir -p logs/collectl
-            sudo mv $wise_home/collectl/data/coll-* logs/collectl
+            mkdir -p logs/collectl
+            mv $wise_home/collectl/data/coll-* logs/collectl
           fi
 
-          sudo mkdir -p logs/milliscope
-          sudo mv /proc/spec_connect logs/milliscope/spec_connect.csv
-          sudo mv /proc/spec_sendto logs/milliscope/spec_sendto.csv
-          sudo mv /proc/spec_recvfrom logs/milliscope/spec_recvfrom.csv
+          mkdir -p logs/milliscope
+          cat /proc/spec_connect > logs/milliscope/spec_connect.csv
+          cat /proc/spec_sendto > logs/milliscope/spec_sendto.csv
+          cat /proc/spec_recvfrom > logs/milliscope/spec_recvfrom.csv
         fi
 
         if [[ \"$is_docker_instrumented\" -eq 1 ]]; then
           if [[ \"$ENABLE_RADVISOR\" -eq 1 ]]; then
-            sudo mkdir -p logs/radvisor
-            sudo mv $radvisor_stats/*.log logs/radvisor
+            mkdir -p logs/radvisor
+            mv $radvisor_stats/*.log logs/radvisor
           fi
           if [[ \"$USE_PATCHED_DOCKER\" -eq 1 ]]; then
-            sudo mkdir -p logs/moby
-            sudo mv $patched_moby_logs/*.log logs/moby
+            mkdir -p logs/moby
+            mv $patched_moby_logs/*.log logs/moby
           fi
         fi
         
-        sudo tar -C logs -czf log-${log_name}-\$(echo \$(hostname) | awk -F'[-.]' '{print \$1\$2}').tar.gz ./
+        tar -C logs -czf log-${log_name}-\$(echo \$(hostname) | awk -F'[-.]' '{print \$1\$2}').tar.gz ./
     " &
     wait $!
   done
