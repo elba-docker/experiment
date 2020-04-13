@@ -245,7 +245,7 @@ for host in $POSTGRESQL_HOST; do
     sudo DEBIAN_FRONTEND=noninteractive apt-get install -y postgresql-client-common
     sudo DEBIAN_FRONTEND=noninteractive apt-get install -y postgresql-client-10
 
-    export POSTGRES_MAXCONNECTIONS="$POSTGRES_MAXCONNECTIONS"
+    export POSTGRES_MAXCONNECTIONS=\"$POSTGRES_MAXCONNECTIONS\"
 
     $wise_home/microblog_bench/postgres/scripts/start_postgres.sh
     sudo -u postgres psql -c \"CREATE ROLE $USERNAME WITH LOGIN CREATEDB SUPERUSER\"
@@ -343,9 +343,9 @@ for host in $WEB_HOSTS; do
     $wise_home/microblog_bench/services/microblog/scripts/gen_code.sh py
 
     # Export configuration parameters.
-    export APACHE_WSGIDIRPATH="$APACHE_WSGIDIRPATH"
-    export APACHE_PYTHONPATH="$APACHE_PYTHONPATH"
-    export APACHE_PYTHONHOME="$APACHE_PYTHONHOME"
+    export APACHE_WSGIDIRPATH=\"$APACHE_WSGIDIRPATH\"
+    export APACHE_PYTHONPATH=\"$APACHE_PYTHONPATH\"
+    export APACHE_PYTHONHOME=\"$APACHE_PYTHONHOME\"
     export APACHE_PROCESSES=$APACHE_PROCESSES
     export APACHE_THREADSPERPROCESS=$APACHE_THREADSPERPROCESS
     export APACHE_WSGIFILENAME=web.wsgi
@@ -543,6 +543,8 @@ done
 
 
 echo "[$(date +%s)] Cleanup:"
+# <https://github.com/elba-kubernetes/moby/blob/277079e650c835624a303ed3de4f90d0f6db5814/daemon/stats.go#L51>
+patched_moby_logs="/var/logs/docker/stats"
 for K in "${!host_log_names[@]}"; do
   log_name="$K"
   hosts=${host_log_names[$K]}
