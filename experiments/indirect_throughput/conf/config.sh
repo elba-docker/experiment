@@ -1,26 +1,26 @@
 # If using bare metal hosts, set with your CloudLab username.
 # If using virtual machines (appendix A of the tutorial), set with "ubuntu".
-readonly USERNAME="<FILL IN>"
+readonly USERNAME="jazevedo"
 
 # If using bare metal hosts, set with "physical".
 # If using virtual machines (appendix A of the tutorial), set with "vm".
-readonly HOSTS_TYPE="<FILL IN>"
+readonly HOSTS_TYPE="physical"
 
 # If using profile MicroblogBareMetalD430, set with "d430".
 # If using profile MicroblogBareMetalC8220, set with "c8220".
-readonly HARDWARE_TYPE="<FILL IN>"
+readonly HARDWARE_TYPE="c8220"
 
 # Worker hosts to run benchmark execution on
 #   Example (bare metal host): pc853.emulab.net
 #   Example (virtual machine): 10.254.3.128
-readonly WORKER_HOSTS="<FILL IN>"
+readonly WORKER_HOSTS="clnode096.clemson.cloudlab.us"
 
 # Whether to use the patched docker version; either 0 or 1
 readonly USE_PATCHED_DOCKER=<FILL IN>
 # Whether to enable rAdvisor; either 0 or 1
-readonly ENABLE_RADVISOR=<FILL IN>
+readonly ENABLE_RADVISOR=1
 # Whether to enable collectl; either 0 or 1
-readonly ENABLE_COLLECTL=<FILL IN>
+readonly ENABLE_COLLECTL=1
 
 # Number of CPU cores to leave enabled
 readonly ENABLED_CPUS="4"
