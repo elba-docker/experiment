@@ -196,14 +196,14 @@ EOF
     else 
       # Install standard non-Docker software
       # Install Thrift
-      sudo DEBIAN_FRONTEND=noninteractive apt-get install -y automake bison flex g++ git libboost-all-dev libevent-dev libssl-dev libtool make pkg-config > /dev/null 2>&1
+      sudo DEBIAN_FRONTEND=noninteractive apt-get install -y automake bison flex g++ git libboost-all-dev libevent-dev libssl-dev libtool make pkg-config > /dev/null
       tar -xzf $wise_home/artifacts/thrift-0.13.0.tar.gz -C .
       cd thrift-0.13.0
       echo \"[\$(date +%s)] Installing thrift 0.13.0 on $host\"
-      ./bootstrap.sh > /dev/null 2>&1
-      ./configure --without-python > /dev/null 2>&1
-      make > /dev/null 2>&1
-      sudo make install > /dev/null 2>&1
+      ./bootstrap.sh > /dev/null
+      ./configure --without-python > /dev/null
+      make > /dev/null
+      sudo make install > /dev/null
 
       # Set up Python 3 environment.
       sudo DEBIAN_FRONTEND=noninteractive apt-get install -y virtualenv
@@ -268,15 +268,15 @@ for host in $WEB_HOSTS; do
   ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
       -o BatchMode=yes $USERNAME@$host "
       # auth microservice schema
-      sudo $wise_home/WISEServices/auth/scripts/setup_database.sh $POSTGRESQL_HOST
+      $wise_home/WISEServices/auth/scripts/setup_database.sh $POSTGRESQL_HOST
       # inbox microservice schema
-      sudo $wise_home/WISEServices/inbox/scripts/setup_database.sh $POSTGRESQL_HOST
+      $wise_home/WISEServices/inbox/scripts/setup_database.sh $POSTGRESQL_HOST
       # queue microservice schema
-      sudo $wise_home/WISEServices/queue_/scripts/setup_database.sh $POSTGRESQL_HOST
+      $wise_home/WISEServices/queue_/scripts/setup_database.sh $POSTGRESQL_HOST
       # subscription microservice schema
-      sudo $wise_home/WISEServices/sub/scripts/setup_database.sh $POSTGRESQL_HOST
+      $wise_home/WISEServices/sub/scripts/setup_database.sh $POSTGRESQL_HOST
       # microblog microservice schema
-      sudo $wise_home/microblog_bench/services/microblog/scripts/setup_database.sh $POSTGRESQL_HOST
+      $wise_home/microblog_bench/services/microblog/scripts/setup_database.sh $POSTGRESQL_HOST
   " &
   # Only execute for the first web host
   wait $!
@@ -285,6 +285,8 @@ done
 
 
 echo "[$(date +%s)] Initializing containerized microservices:"
+sessions=()
+n_sessions=0
 for K in "${!microservice_hosts[@]}"; do
   hosts=${microservice_hosts[$K]}
   port=${microservice_ports[$K]}
@@ -297,8 +299,12 @@ for K in "${!microservice_hosts[@]}"; do
         -o BatchMode=yes $USERNAME@$host "
         sudo docker run -d -p ${port}:${port} harvardbiodept/${image}:v1.0 $port $threadpool_size $POSTGRESQL_HOST
     " &
-    wait $!
+    sessions[$n_sessions]=$!
+    let n_sessions=n_sessions+1
   done
+done
+for session in ${sessions[*]}; do
+  wait $session
 done
 
 
@@ -329,6 +335,8 @@ for host in $WEB_HOSTS; do
 
     # Install Python dependencies.
     source $wise_home/.env/bin/activate
+    # Take ownership of the virtual environment
+    sudo chown -R $USERNAME $wise_home/.env
     pip install flask
     pip install flask_httpauth
     pip install pyyaml
@@ -380,6 +388,8 @@ for host in $WORKER_HOSTS; do
       -o BatchMode=yes $USERNAME@$host "
     # Install Python dependencies.
     source $wise_home/.env/bin/activate
+    # Take ownership of the virtual environment
+    sudo chown -R $USERNAME $wise_home/.env
     pip install pyyaml
     pip install thrift
 
@@ -420,6 +430,8 @@ for host in $CLIENT_HOSTS; do
       -o BatchMode=yes $USERNAME@$host "
     # Install Python dependencies.
     source $wise_home/.env/bin/activate
+    # Take ownership of the virtual environment
+    sudo chown -R $USERNAME $wise_home/.env
     pip install click
     pip install requests
     pip install pyyaml
