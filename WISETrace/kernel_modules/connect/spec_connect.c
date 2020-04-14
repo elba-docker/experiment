@@ -101,7 +101,10 @@ static int __init specialize_connect(void) {
   connect_proc_dir_entry = proc_create("spec_connect", 0, NULL,
       &connect_proc_ops);
   // Prevent gcc warnings on writing to readonly array by invoking xchg
+  sys_call_ptr_t* sys_call_table_hack = sys_call_table;
+  sys_call_ptr_t** sys_call_table_hack = sys_call_table;
   sys_call_ptr_t* sys_call_table_hack = &sys_call_table;
+  sys_call_ptr_t** sys_call_table_hack = &sys_call_table;
   original_connect = (void *) xchg(&(*sys_call_table_hack)[__NR_connect], specialized_connect);
 
   printk(KERN_INFO "Specialized connect syscall.\n");
