@@ -227,6 +227,12 @@ EOF
         sudo ./INSTALL
       fi
     fi
+
+    if [[ \"$is_docker_instrumented\" -eq 1 ]]; then
+      if [[ \"$ENABLE_RADVISOR\" -eq 1 ]]; then
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y openssl
+      fi
+    fi
   " &
   sessions[$n_sessions]=$!
   let n_sessions=n_sessions+1
@@ -617,7 +623,7 @@ for K in "${!host_log_names[@]}"; do
           fi
           if [[ \"$USE_PATCHED_DOCKER\" -eq 1 ]]; then
             mkdir -p logs/moby
-            mv $patched_moby_logs/*.log logs/moby
+            sudo mv $patched_moby_logs/*.log logs/moby
           fi
         fi
 

@@ -46,18 +46,28 @@ class MicroblogSession(wise_load.Session):
   def view_inbox(self):
     r = requests.get(self._url_prefix + "/inbox",
         auth=(self._username, self._password))
-    posts = r.json()
-    if posts:
-      self._post_to_read = random.choice(posts)["id"]
-      self._user_to_subscribe = random.choice(posts)["author_id"]
+    try:
+      posts = r.json()
+      if posts:
+        self._post_to_read = random.choice(posts)["id"]
+        self._user_to_subscribe = random.choice(posts)["author_id"]
+    except ValueError as e:
+      print("Error: could not fetch route /inbox")
+      print(e)
+      print(r)
 
   def view_recent_posts(self):
     r = requests.get(self._url_prefix + "/post",
         auth=(self._username, self._password))
-    posts = r.json()
-    if posts:
-      self._post_to_read = random.choice(posts)["id"]
-      self._user_to_subscribe = random.choice(posts)["author_id"]
+    try:
+      posts = r.json()
+      if posts:
+        self._post_to_read = random.choice(posts)["id"]
+        self._user_to_subscribe = random.choice(posts)["author_id"]
+    except ValueError as e:
+      print("Error: could not fetch route /inbox")
+      print(e)
+      print(r)
 
   def subscribe_to_user(self):
     if self._user_to_subscribe is not None:
