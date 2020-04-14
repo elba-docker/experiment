@@ -93,7 +93,8 @@ static int __init specialize_sendto(void) {
   sendto_proc_dir_entry = proc_create("spec_sendto", 0, NULL,
       &sendto_proc_ops);
   // Prevent gcc warnings on writing to readonly array by invoking xchg
-  original_sendto = (void *) xchg(&sys_call_table[__NR_sendto], specialized_sendto);
+  sys_call_ptr_t* sys_call_table_hack = sys_call_table;
+  original_sendto = (void*) xchg(&sys_call_table_hack[__NR_sendto], (void*) specialized_sendto);
 
   printk(KERN_INFO "Specialized sendto syscalls.\n");
 
@@ -102,7 +103,8 @@ static int __init specialize_sendto(void) {
 
 static void __exit restore_sendto(void) {
   // Prevent gcc warnings on writing to readonly array by invoking xchg
-  xchg(&sys_call_table[__NR_sendto], original_sendto);
+  sys_call_ptr_t* sys_call_table_hack = sys_call_table;
+  xchg(&sys_call_table_hack[__NR_sendto], (void*) original_sendto);
   proc_remove(sendto_proc_dir_entry);
 
   printk(KERN_INFO "Restored sendto syscall.\n");

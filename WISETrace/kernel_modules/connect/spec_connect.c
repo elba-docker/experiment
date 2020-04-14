@@ -102,10 +102,7 @@ static int __init specialize_connect(void) {
       &connect_proc_ops);
   // Prevent gcc warnings on writing to readonly array by invoking xchg
   sys_call_ptr_t* sys_call_table_hack = sys_call_table;
-  sys_call_ptr_t** sys_call_table_hack_1 = sys_call_table;
-  sys_call_ptr_t* sys_call_table_hack_2 = &sys_call_table;
-  sys_call_ptr_t** sys_call_table_hack_3 = &sys_call_table;
-  original_connect = (void *) xchg(&(*sys_call_table_hack)[__NR_connect], specialized_connect);
+  original_connect = (void*) xchg(&sys_call_table_hack[__NR_connect], (void*) specialized_connect);
 
   printk(KERN_INFO "Specialized connect syscall.\n");
 
@@ -114,8 +111,8 @@ static int __init specialize_connect(void) {
 
 static void __exit restore_connect(void) {
   // Prevent gcc warnings on writing to readonly array by invoking xchg
-  sys_call_ptr_t* sys_call_table_hack = &sys_call_table;
-  xchg(&(*sys_call_table_hack)[__NR_connect], specialized_connect);
+  sys_call_ptr_t* sys_call_table_hack = sys_call_table;
+  xchg(&sys_call_table_hack[__NR_connect], (void*) original_connect);
   proc_remove(connect_proc_dir_entry);
 
   printk(KERN_INFO "Restored connect syscall.\n");
