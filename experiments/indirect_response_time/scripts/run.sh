@@ -197,7 +197,8 @@ EOF
       # Install standard non-Docker software
       
       # Install Thrift
-      sudo DEBIAN_FRONTEND=noninteractive apt-get install -y automake bison flex g++ git libboost-all-dev libevent-dev libssl-dev libtool make pkg-config
+      echo \"[\$(date +%s)] Downloading packages for thrift 0.13.0 on $host\"
+      sudo DEBIAN_FRONTEND=noninteractive apt-get install -y automake bison flex g++ git libboost-all-dev libevent-dev libssl-dev libtool make pkg-config > /dev/null 2>&1
       tar -xzf $wise_home/artifacts/thrift-0.13.0.tar.gz -C .
       cd thrift-0.13.0
       echo \"[\$(date +%s)] Installing thrift 0.13.0 on $host\"
