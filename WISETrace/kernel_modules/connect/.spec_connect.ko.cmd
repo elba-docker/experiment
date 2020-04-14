@@ -1,1 +1,0 @@
-cmd_/users/ral/WISETutorial/WISETrace/kernel_modules/connect/spec_connect.ko := ld -r -m elf_x86_64 -T ./scripts/module-common.lds --build-id  -o /users/ral/WISETutorial/WISETrace/kernel_modules/connect/spec_connect.ko /users/ral/WISETutorial/WISETrace/kernel_modules/connect/spec_connect.o /users/ral/WISETutorial/WISETrace/kernel_modules/connect/spec_connect.mod.o ;  true

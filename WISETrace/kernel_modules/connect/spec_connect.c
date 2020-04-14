@@ -100,8 +100,8 @@ static int __init specialize_connect(void) {
   atomic_set(&connect_buff_count, 0);
   connect_proc_dir_entry = proc_create("spec_connect", 0, NULL,
       &connect_proc_ops);
-  original_connect = (void *) sys_call_table[__NR_connect];
-  sys_call_table[__NR_connect] = (void *) &specialized_connect;
+  // Prevent gcc warnings on writing to readonly array by invoking xchg
+  original_connect = (void *) xchg(&sys_call_table[__NR_connect], specialized_connect);
 
   printk(KERN_INFO "Specialized connect syscall.\n");
 
@@ -109,7 +109,8 @@ static int __init specialize_connect(void) {
 }
 
 static void __exit restore_connect(void) {
-  sys_call_table[__NR_connect] = (void *) original_connect;
+  // Prevent gcc warnings on writing to readonly array by invoking xchg
+  xchg(&sys_call_table[__NR_connect], original_connect);
   proc_remove(connect_proc_dir_entry);
 
   printk(KERN_INFO "Restored connect syscall.\n");
