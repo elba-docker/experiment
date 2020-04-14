@@ -20,11 +20,11 @@ MODULE_AUTHOR("Rodrigo Alves Lima");
 MODULE_DESCRIPTION("Specialize sendto syscall.");
 MODULE_VERSION("0.1");
 
+// Load sys call table pointer at compile time
+void* syscall_table_dyn[] = (void*) 0xTABLE; 
+
 #define SENDTO_BUFF_SIZE 524288
 #define MAX_SENDTO_LOG_ENTRY_LEN 512
- 
-// Load sys call table pointer at compile time
-sys_call_ptr_t* syscall_table_dyn = (sys_call_ptr_t*) 0xTABLE; 
 
 typedef struct sendto_buff_entry {
   long long ts;               /* Timestamp */
@@ -95,9 +95,8 @@ static int __init specialize_sendto(void) {
   atomic_set(&sendto_buff_count, 0);
   sendto_proc_dir_entry = proc_create("spec_sendto", 0, NULL,
       &sendto_proc_ops);
-  // Prevent gcc warnings on writing to readonly array by invoking xchg
-  sys_call_ptr_t* sys_call_table_hack = syscall_table_dyn;
-  original_sendto = (void*) xchg(&sys_call_table_hack[__NR_sendto], (void*) specialized_sendto);
+  original_sendto = syscall_table_dyn[__NR_recvfrom];
+  syscall_table_dyn[__NR_sendto] = (void*) specialized_sendto;
 
   printk(KERN_INFO "Specialized sendto syscalls.\n");
 
@@ -105,9 +104,7 @@ static int __init specialize_sendto(void) {
 }
 
 static void __exit restore_sendto(void) {
-  // Prevent gcc warnings on writing to readonly array by invoking xchg
-  sys_call_ptr_t* sys_call_table_hack = syscall_table_dyn;
-  xchg(&sys_call_table_hack[__NR_sendto], (void*) original_sendto);
+  syscall_table_dyn[__NR_sendto] = (void*) original_sendto;
   proc_remove(sendto_proc_dir_entry);
 
   printk(KERN_INFO "Restored sendto syscall.\n");

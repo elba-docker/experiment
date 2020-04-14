@@ -582,11 +582,6 @@ for K in "${!host_log_names[@]}"; do
         fi
         
         if [[ \"$is_instrumented\" -eq 1 ]]; then
-          # Stop event monitors.
-          sudo rmmod spec_connect
-          sudo rmmod spec_sendto
-          sudo rmmod spec_recvfrom
-
           # Stop resource monitors.
           if [[ \"$ENABLE_COLLECTL\" -eq 1 ]]; then
             sudo pkill collectl
@@ -627,6 +622,13 @@ for K in "${!host_log_names[@]}"; do
         fi
         
         tar -C logs -czf log-${log_name}-\$(echo \$(hostname) | awk -F'[-.]' '{print \$1\$2}').tar.gz ./
+
+        if [[ \"$is_instrumented\" -eq 1 ]]; then
+          # Stop event monitors.
+          sudo rmmod spec_connect
+          sudo rmmod spec_sendto
+          sudo rmmod spec_recvfrom
+        fi
     " &
     wait $!
   done
