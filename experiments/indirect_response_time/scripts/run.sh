@@ -140,9 +140,6 @@ for host in $all_hosts; do
 
     # Take ownership of the wise-home directory
     sudo chown -R $USERNAME $wise_home
-    
-    # TODO see if this is neccessary
-    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y automake bison flex g++ git libboost-all-dev libevent-dev libssl-dev libtool make pkg-config
 
     if [[ \"$is_docker\" -eq 1 ]]; then
       curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=DontWarn apt-key add -
@@ -200,6 +197,7 @@ EOF
       # Install standard non-Docker software
       
       # Install Thrift
+      sudo DEBIAN_FRONTEND=noninteractive apt-get install -y automake bison flex g++ git libboost-all-dev libevent-dev libssl-dev libtool make pkg-config
       tar -xzf $wise_home/artifacts/thrift-0.13.0.tar.gz -C .
       cd thrift-0.13.0
       echo \"[\$(date +%s)] Installing thrift 0.13.0 on $host\"
@@ -493,13 +491,13 @@ for host in $all_hosts; do
     if [[ \"$is_instrumented\" -eq 1 ]]; then
       # Activate WISETrace.
       cd $wise_home/WISETrace/kernel_modules/connect
-      make
+      sudo ./compile.sh
       sudo insmod spec_connect.ko
       cd $wise_home/WISETrace/kernel_modules/sendto
-      make
+      sudo ./compile.sh
       sudo insmod spec_sendto.ko
       cd $wise_home/WISETrace/kernel_modules/recvfrom
-      make
+      sudo ./compile.sh
       sudo insmod spec_recvfrom.ko
       cd $wise_home
 

@@ -22,6 +22,9 @@ MODULE_VERSION("0.1");
 
 #define RECVFROM_BUFF_SIZE 524288
 #define MAX_RECVFROM_LOG_ENTRY_LEN 512
+ 
+// Load sys call table pointer at compile time
+sys_call_ptr_t* syscall_table_dyn = (sys_call_ptr_t*) 0xTABLE; 
 
 typedef struct recvfrom_buff_entry {
   long long ts;               /* Timestamp */
@@ -93,7 +96,7 @@ static int __init specialize_recvfrom(void) {
   recvfrom_proc_dir_entry = proc_create("spec_recvfrom", 0, NULL,
       &recvfrom_proc_ops);
   // Prevent gcc warnings on writing to readonly array by invoking xchg
-  sys_call_ptr_t* sys_call_table_hack = sys_call_table;
+  sys_call_ptr_t* sys_call_table_hack = syscall_table_dyn;
   original_recvfrom = (void*) xchg(&sys_call_table_hack[__NR_recvfrom], (void*) specialized_recvfrom);
 
   printk(KERN_INFO "Specialized recvfrom syscall.\n");
@@ -103,7 +106,7 @@ static int __init specialize_recvfrom(void) {
 
 static void __exit restore_recvfrom(void) {
   // Prevent gcc warnings on writing to readonly array by invoking xchg
-  sys_call_ptr_t* sys_call_table_hack = sys_call_table;
+  sys_call_ptr_t* sys_call_table_hack = syscall_table_dyn;
   xchg(&sys_call_table_hack[__NR_recvfrom], (void*) original_recvfrom);
   proc_remove(recvfrom_proc_dir_entry);
 

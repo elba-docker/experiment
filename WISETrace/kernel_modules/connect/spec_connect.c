@@ -19,6 +19,9 @@ MODULE_LICENSE("APACHE2");
 MODULE_AUTHOR("Rodrigo Alves Lima");
 MODULE_DESCRIPTION("Specialize connect syscall.");
 MODULE_VERSION("0.1");
+ 
+// Load sys call table pointer at compile time
+sys_call_ptr_t* syscall_table_dyn = (sys_call_ptr_t*) 0xTABLE; 
 
 #define CONNECT_BUFF_SIZE 524288
 #define MAX_CONNECT_LOG_ENTRY_LEN 512
@@ -101,7 +104,7 @@ static int __init specialize_connect(void) {
   connect_proc_dir_entry = proc_create("spec_connect", 0, NULL,
       &connect_proc_ops);
   // Prevent gcc warnings on writing to readonly array by invoking xchg
-  sys_call_ptr_t* sys_call_table_hack = sys_call_table;
+  sys_call_ptr_t* sys_call_table_hack = syscall_table_dyn;
   original_connect = (void*) xchg(&sys_call_table_hack[__NR_connect], (void*) specialized_connect);
 
   printk(KERN_INFO "Specialized connect syscall.\n");
@@ -111,7 +114,7 @@ static int __init specialize_connect(void) {
 
 static void __exit restore_connect(void) {
   // Prevent gcc warnings on writing to readonly array by invoking xchg
-  sys_call_ptr_t* sys_call_table_hack = sys_call_table;
+  sys_call_ptr_t* sys_call_table_hack = syscall_table_dyn;
   xchg(&sys_call_table_hack[__NR_connect], (void*) original_connect);
   proc_remove(connect_proc_dir_entry);
 
