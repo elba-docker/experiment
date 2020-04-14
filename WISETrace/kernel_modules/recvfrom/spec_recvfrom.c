@@ -20,9 +20,6 @@ MODULE_AUTHOR("Rodrigo Alves Lima");
 MODULE_DESCRIPTION("Specialize recvfrom syscall.");
 MODULE_VERSION("0.1");
 
-// Load sys call table pointer at compile time
-void** syscall_table_dyn = (void**) 0xTABLE;
-
 #define RECVFROM_BUFF_SIZE 524288
 #define MAX_RECVFROM_LOG_ENTRY_LEN 512
 
@@ -95,8 +92,8 @@ static int __init specialize_recvfrom(void) {
   atomic_set(&recvfrom_buff_count, 0);
   recvfrom_proc_dir_entry = proc_create("spec_recvfrom", 0, NULL,
       &recvfrom_proc_ops);
-  original_recvfrom = syscall_table_dyn[__NR_recvfrom];
-  syscall_table_dyn[__NR_recvfrom] = (void*) specialized_recvfrom;
+  original_recvfrom = (void *) sys_call_table[__NR_recvfrom];
+  sys_call_table[__NR_recvfrom] = (void *) &specialized_recvfrom;
 
   printk(KERN_INFO "Specialized recvfrom syscall.\n");
 
@@ -104,7 +101,7 @@ static int __init specialize_recvfrom(void) {
 }
 
 static void __exit restore_recvfrom(void) {
-  syscall_table_dyn[__NR_recvfrom] = (void*) original_recvfrom;
+  sys_call_table[__NR_recvfrom] = (void *) original_recvfrom;
   proc_remove(recvfrom_proc_dir_entry);
 
   printk(KERN_INFO "Restored recvfrom syscall.\n");

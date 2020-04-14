@@ -162,7 +162,7 @@ for host in $all_hosts; do
           docker-ce=5:19.03.4~3-0~ubuntu-\$(lsb_release -cs) \\
           docker-ce-cli=5:19.03.4~3-0~ubuntu-\$(lsb_release -cs)
       fi
-      
+
       # Setup daemon.
       if [[ \"$USE_PATCHED_DOCKER\" -eq 1 ]] && [[ \"$is_instrumented\" -eq 1 ]]; then
 cat <<EOF | sudo tee /etc/docker/daemon.json
@@ -193,9 +193,9 @@ EOF
       # Restart docker.
       sudo systemctl daemon-reload
       sudo systemctl restart docker
-    else 
+    else
       # Install standard non-Docker software
-      
+
       # Install Thrift
       echo \"[\$(date +%s)] Downloading packages for thrift 0.13.0 on $host\"
       sudo DEBIAN_FRONTEND=noninteractive apt-get install -y automake bison flex g++ git libboost-all-dev libevent-dev libssl-dev libtool make pkg-config > /dev/null 2>&1
@@ -488,17 +488,17 @@ for host in $all_hosts; do
   ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
       -o BatchMode=yes $USERNAME@$host "
     cd $wise_home
-  
+
     if [[ \"$is_instrumented\" -eq 1 ]]; then
       # Activate WISETrace.
       cd $wise_home/WISETrace/kernel_modules/connect
-      sudo ./compile.sh
+      make
       sudo insmod spec_connect.ko
       cd $wise_home/WISETrace/kernel_modules/sendto
-      sudo ./compile.sh
+      make
       sudo insmod spec_sendto.ko
       cd $wise_home/WISETrace/kernel_modules/recvfrom
-      sudo ./compile.sh
+      make
       sudo insmod spec_recvfrom.ko
       cd $wise_home
 
@@ -580,7 +580,7 @@ for K in "${!host_log_names[@]}"; do
           sudo docker rm \$(sudo docker ps -aq)
           sleep 4s
         fi
-        
+
         if [[ \"$is_instrumented\" -eq 1 ]]; then
           # Stop resource monitors.
           if [[ \"$ENABLE_COLLECTL\" -eq 1 ]]; then
@@ -620,7 +620,7 @@ for K in "${!host_log_names[@]}"; do
             mv $patched_moby_logs/*.log logs/moby
           fi
         fi
-        
+
         tar -C logs -czf log-${log_name}-\$(echo \$(hostname) | awk -F'[-.]' '{print \$1\$2}').tar.gz ./
 
         if [[ \"$is_instrumented\" -eq 1 ]]; then
