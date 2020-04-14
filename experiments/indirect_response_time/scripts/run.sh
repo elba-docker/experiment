@@ -140,6 +140,9 @@ for host in $all_hosts; do
 
     # Take ownership of the wise-home directory
     sudo chown -R $USERNAME $wise_home
+    
+    # TODO see if this is neccessary
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y automake bison flex g++ git libboost-all-dev libevent-dev libssl-dev libtool make pkg-config
 
     if [[ \"$is_docker\" -eq 1 ]]; then
       curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=DontWarn apt-key add -
@@ -195,14 +198,14 @@ EOF
       sudo systemctl restart docker
     else 
       # Install standard non-Docker software
+      
       # Install Thrift
-      sudo DEBIAN_FRONTEND=noninteractive apt-get install -y automake bison flex g++ git libboost-all-dev libevent-dev libssl-dev libtool make pkg-config > /dev/null
       tar -xzf $wise_home/artifacts/thrift-0.13.0.tar.gz -C .
       cd thrift-0.13.0
       echo \"[\$(date +%s)] Installing thrift 0.13.0 on $host\"
       ./bootstrap.sh > /dev/null
       ./configure --without-python > /dev/null
-      make > /dev/null
+      make > /dev/null 2>&1
       sudo make install > /dev/null
 
       # Set up Python 3 environment.
