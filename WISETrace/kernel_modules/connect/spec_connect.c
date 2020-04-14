@@ -19,9 +19,9 @@ MODULE_LICENSE("APACHE2");
 MODULE_AUTHOR("Rodrigo Alves Lima");
 MODULE_DESCRIPTION("Specialize connect syscall.");
 MODULE_VERSION("0.1");
- 
+
 // Load sys call table pointer at compile time
-void* syscall_table_dyn[] = (void*) 0xTABLE; 
+void** syscall_table_dyn = (void**) 0xTABLE;
 
 #define CONNECT_BUFF_SIZE 524288
 #define MAX_CONNECT_LOG_ENTRY_LEN 512
