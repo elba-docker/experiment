@@ -12,12 +12,13 @@ from gen_auth.auth.ttypes import TAccount, TInvalidCredentialsException
 
 
 class Handler:
-  def __init__(self, db_host):
+  def __init__(self, db_host, db_user):
     self._db_host = db_host
+    self._db_user = db_user
 
   def sign_up(self, username, password, first_name, last_name):
-    conn = psycopg2.connect("dbname='{dbname}' host='{host}'".format(
-        dbname="microblog_bench", host=self._db_host))
+    conn = psycopg2.connect("dbname='{dbname}' host='{host}' user={dbuser}".format(
+        dbname="microblog_bench", host=self._db_host, dbuser=self._db_user))
     cursor = conn.cursor()
     now = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
     cursor.execute("""
@@ -35,8 +36,8 @@ class Handler:
         last_name=last_name, created_at=now)
 
   def sign_in(self, username, password):
-    conn = psycopg2.connect("dbname='{dbname}' host='{host}'".format(
-        dbname="microblog_bench", host=self._db_host))
+    conn = psycopg2.connect("dbname='{dbname}' host='{host}' user={dbuser}".format(
+        dbname="microblog_bench", host=self._db_host, dbuser=self._db_user))
     cursor = conn.cursor()
     cursor.execute("""
         SELECT id, password, first_name, last_name, created_at
@@ -56,14 +57,15 @@ class Handler:
 
 
 class Server:
-  def __init__(self, ip_address, port, thread_pool_size, db_host):
+  def __init__(self, ip_address, port, thread_pool_size, db_host, db_user):
     self._ip_address = ip_address
     self._port = port
     self._thread_pool_size = thread_pool_size
     self._db_host = db_host
+    self._db_user = db_user
 
   def serve(self):
-    handler = Handler(self._db_host)
+    handler = Handler(self._db_host, self._db_user)
     processor = TAuthService.Processor(handler)
     transport = TSocket.TServerSocket(host=self._ip_address, port=self._port)
     tfactory = TTransport.TBufferedTransportFactory()
@@ -78,8 +80,9 @@ class Server:
 @click.option("--port", prompt="Port")
 @click.option("--thread_pool_size", prompt="Thread pool size", type=click.INT)
 @click.option("--db_host", prompt="PostgreSQL host")
-def main(ip_address, port, thread_pool_size, db_host):
-  server = Server(ip_address, port, thread_pool_size, db_host)
+@click.option("--db_user", prompt="PostgreSQL user")
+def main(ip_address, port, thread_pool_size, db_host, db_user):
+  server = Server(ip_address, port, thread_pool_size, db_host, db_user)
   server.serve()
 
 

@@ -20,6 +20,11 @@ readonly ENABLE_RADVISOR=<FILL IN>
 # Whether to enable collectl; either 0 or 1
 readonly ENABLE_COLLECTL=<FILL IN>
 
+# Period between running the polling thread to find new collection targets
+readonly POLLING_INTERVAL="6s"
+# Period (ms) between collection ticks for radvisor/moby
+readonly COLLECTION_INTERVAL="50"
+
 # Hostnames of each tier.
 # Example (bare metal host): pc853.emulab.net
 # Example (virtual machine): 10.254.3.128
@@ -56,7 +61,5 @@ INBOX_THREADPOOLSIZE=32
 QUEUE_THREADPOOLSIZE=32
 SUB_THREADPOOLSIZE=32
 
-# Period between running the polling thread to find new collection targets
-readonly POLLING_INTERVAL="6s"
-# Period (ms) between collection ticks for radvisor/moby
-readonly COLLECTION_INTERVAL="50"
+# Either 0 or 1.
+readonly WISE_DEBUG=0

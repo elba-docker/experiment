@@ -257,9 +257,6 @@ for host in $POSTGRESQL_HOST; do
 
     $wise_home/microblog_bench/postgres/scripts/start_postgres.sh
     sudo -u postgres psql -c \"CREATE ROLE $USERNAME WITH LOGIN CREATEDB SUPERUSER\"
-    # Add 'root' user because the microservices run on the root user in the Docker
-    # containers and I can't be bothered to (figure out how to) rebuild
-    sudo -u postgres psql -c \"CREATE ROLE root WITH LOGIN CREATEDB SUPERUSER\"
     createdb microblog_bench
   " &
   sessions[$n_sessions]=$!
@@ -308,7 +305,7 @@ for K in "${!microservice_hosts[@]}"; do
     echo "    [$(date +%s)] Setting up microservice class \"$K\" on host $host"
     ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
         -o BatchMode=yes $USERNAME@$host "
-        sudo docker run -d -p ${port}:${port} harvardbiodept/${image}:v1.0 $port $threadpool_size $POSTGRESQL_HOST
+        sudo docker run -d -p ${port}:${port} wisebenchmark/${image}:v1.0 $port $threadpool_size $POSTGRESQL_HOST $USERNAME
     " &
     sessions[$n_sessions]=$!
     let n_sessions=n_sessions+1
@@ -523,7 +520,7 @@ for host in $all_hosts; do
       if [[ \"$ENABLE_RADVISOR\" -eq 1 ]]; then
         mkdir -p $radvisor_stats
         chmod +x ./artifacts/radvisor
-        nohup sudo nice -n -1 ./artifacts/radvisor run docker -d $radvisor_stats -p $POLLING_INTERVAL -i ${COLLECTION_INTERVAL}ms --verbose > $radvisor_stats/out.log 2>&1 &
+        nohup sudo nice -n -1 ./artifacts/radvisor run docker -d $radvisor_stats -p $POLLING_INTERVAL -i ${COLLECTION_INTERVAL}ms --quiet > /dev/null 2>&1 &
       fi
     fi
   " &
