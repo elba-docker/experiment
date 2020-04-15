@@ -520,7 +520,7 @@ for host in $all_hosts; do
       if [[ \"$ENABLE_RADVISOR\" -eq 1 ]]; then
         mkdir -p $radvisor_stats
         chmod +x ./artifacts/radvisor
-        nohup sudo nice -n -1 ./artifacts/radvisor run docker -d $radvisor_stats -p $POLLING_INTERVAL -i ${COLLECTION_INTERVAL}ms > /dev/null 2>&1 &
+        nohup sudo nice -n -1 ./artifacts/radvisor run docker -d $radvisor_stats -p $POLLING_INTERVAL -i ${COLLECTION_INTERVAL}ms --verbose > $radvisor_stats/out.log 2>&1 &
       fi
     fi
   " &
@@ -585,7 +585,6 @@ for K in "${!host_log_names[@]}"; do
         if [[ \"$is_docker\" -eq 1 ]]; then
           # Stop and remove all docker containers
           sudo docker stop \$(sudo docker ps -aq)
-          sudo docker rm \$(sudo docker ps -aq)
           sleep 4s
         fi
 
