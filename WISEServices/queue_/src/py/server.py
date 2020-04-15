@@ -68,7 +68,7 @@ class Server:
     self._db_user = db_user
 
   def serve(self):
-    handler = Handler(self._db_host)
+    handler = Handler(self._db_host, self._db_user)
     processor = TQueueService.Processor(handler)
     transport = TSocket.TServerSocket(host=self._ip_address, port=self._port)
     tfactory = TTransport.TBufferedTransportFactory()
