@@ -21,64 +21,55 @@ class MicroblogSession(wise_load.Session):
         hostname=hostname, port=port, prefix=prefix)
 
   def sign_up(self):
-    print(f"signing up: u={self._username}, p={self._password}, f={self._first_name}, l={self._last_name}")
-    r = requests.post(self._url_prefix + "/account",
+    requests.post(self._url_prefix + "/account",
         json={
             "username": self._username,
             "password": self._password,
             "first_name": self._first_name,
             "last_name": self._last_name
         })
-    print(f"SIGN_UP {r.status_code}; headers: `{r.headers}`; content: `{r.content}`")
 
   def create_post(self):
-    r = requests.post(self._url_prefix + "/post",
+    requests.post(self._url_prefix + "/post",
         auth=(self._username, self._password),
         json={
             "text": self.random_string(140)
         })
-    print(f"CREATEP {r.status_code}; headers: `{r.headers}`; content: `{r.content}`")
 
   def endorse_post(self):
     if self._post_to_endorse is not None:
-      r = requests.post(
+      requests.post(
           self._url_prefix + "/endorsement/%s" % self._post_to_endorse,
           auth=(self._username, self._password))
-      print(f"ENDORSE {r.status_code}; headers: `{r.headers}`; content: `{r.content}`")
       self._post_to_endorse = None
 
   def view_inbox(self):
     r = requests.get(self._url_prefix + "/inbox",
         auth=(self._username, self._password))
-    print(f"VIEWINB {r.status_code}; headers: `{r.headers}`; content: `{r.content}`")
     try:
       posts = r.json()
       if posts:
         self._post_to_read = random.choice(posts)["id"]
         self._user_to_subscribe = random.choice(posts)["author_id"]
-    except ValueError:
-      pass
-      # print(f"Error: could not fetch route /inbox:\n{e}")
+    except ValueError as e:
+      print(f"Error: could not fetch route /inbox:\n{e}")
 
   def view_recent_posts(self):
     r = requests.get(self._url_prefix + "/post",
         auth=(self._username, self._password))
-    print(f"VIEWRPO {r.status_code}; headers: `{r.headers}`; content: `{r.content}`")
     try:
       posts = r.json()
       if posts:
         self._post_to_read = random.choice(posts)["id"]
         self._user_to_subscribe = random.choice(posts)["author_id"]
-    except ValueError:
-      pass
-      # print(f"Error: could not fetch route /post:\n{e}")
+    except ValueError as e:
+      print(f"Error: could not fetch route /post:\n{e}")
 
   def subscribe_to_user(self):
     if self._user_to_subscribe is not None:
-      r = requests.post(
+      requests.post(
           self._url_prefix + "/subscription/%s" % self._user_to_subscribe,
           auth=(self._username, self._password))
-      print(f"SUBSCRS {r.status_code}; headers: `{r.headers}`; content: `{r.content}`")
       self._user_to_subscribe = None
 
 

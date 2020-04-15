@@ -458,6 +458,8 @@ done
 
 
 echo "[$(date +%s)] Processor setup:"
+sessions=()
+n_sessions=0
 if [[ $HOSTS_TYPE = "physical" ]]; then
   if [[ $HARDWARE_TYPE = "c8220" ]]; then
   for host in $all_hosts; do
@@ -465,7 +467,9 @@ if [[ $HOSTS_TYPE = "physical" ]]; then
     ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o \
         BatchMode=yes $USERNAME@$host "
       for i in \$(seq $ENABLED_CPUS 39); do echo 0 | sudo tee /sys/devices/system/cpu/cpu\$i/online; done
-    "
+    " &
+    sessions[$n_sessions]=$!
+    let n_sessions=n_sessions+1
   done
   fi
   if [[ $HARDWARE_TYPE = "d430" ]]; then
@@ -474,10 +478,15 @@ if [[ $HOSTS_TYPE = "physical" ]]; then
     ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o \
         BatchMode=yes $USERNAME@$host "
       for i in \$(seq $ENABLED_CPUS 31); do echo 0 | sudo tee /sys/devices/system/cpu/cpu\$i/online; done
-    "
+    " &
+    sessions[$n_sessions]=$!
+    let n_sessions=n_sessions+1
   done
   fi
 fi
+for session in ${sessions[*]}; do
+  wait $session
+done
 
 
 echo "[$(date +%s)] System instrumentation:"
@@ -552,7 +561,7 @@ for host in $CLIENT_HOSTS; do
 
     # Load balance.
     mkdir -p $wise_home/logs
-    python $wise_home/microblog_bench/client/session.py --config $wise_home/experiments/indirect_response_time/conf/workload.yml --hostname $WEB_HOSTS --port 80 --prefix microblog > $wise_home/logs/session.log
+    python $wise_home/microblog_bench/client/session.py --config $wise_home/experiments/indirect_response_time/conf/workload.yml --hostname $WEB_HOSTS --port 80 --prefix microblog
   " &
   sessions[$n_sessions]=$!
   let n_sessions=n_sessions+1
@@ -585,6 +594,7 @@ for K in "${!host_log_names[@]}"; do
         if [[ \"$is_docker\" -eq 1 ]]; then
           # Stop and remove all docker containers
           sudo docker stop \$(sudo docker ps -aq)
+          sudo docker rm \$(sudo docker ps -aq)
           sleep 4s
         fi
 
