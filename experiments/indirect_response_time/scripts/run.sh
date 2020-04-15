@@ -257,6 +257,9 @@ for host in $POSTGRESQL_HOST; do
 
     $wise_home/microblog_bench/postgres/scripts/start_postgres.sh
     sudo -u postgres psql -c \"CREATE ROLE $USERNAME WITH LOGIN CREATEDB SUPERUSER\"
+    # Add 'root' user because the microservices run on the root user in the Docker
+    # containers and I can't be bothered to (figure out how to) rebuild
+    sudo -u postgres psql -c \"CREATE ROLE root WITH LOGIN CREATEDB SUPERUSER\"
     createdb microblog_bench
   " &
   sessions[$n_sessions]=$!
