@@ -563,6 +563,8 @@ done
 
 
 echo "[$(date +%s)] Cleanup:"
+sessions=()
+n_sessions=0
 # <https://github.com/elba-kubernetes/moby/blob/277079e650c835624a303ed3de4f90d0f6db5814/daemon/stats.go#L51>
 patched_moby_logs="/var/logs/docker/stats"
 for K in "${!host_log_names[@]}"; do
@@ -636,8 +638,12 @@ for K in "${!host_log_names[@]}"; do
           sudo rmmod spec_recvfrom
         fi
     " &
-    wait $!
+    sessions[$n_sessions]=$!
+    let n_sessions=n_sessions+1
   done
+done
+for session in ${sessions[*]}; do
+  wait $session
 done
 
 
