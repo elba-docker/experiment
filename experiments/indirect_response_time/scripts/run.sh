@@ -432,8 +432,8 @@ sessions=()
 n_sessions=0
 for host in $CLIENT_HOSTS; do
   echo "  [$(date +%s)] Setting up client on host $host"
-  scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no conf/workload.yml $USERNAME@$host:$wise_home/experiments/indirect_response_time/conf
-  scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no conf/session.yml $USERNAME@$host:$wise_home/experiments/indirect_response_time/conf
+  scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no $WORKLOAD_CONFIG $USERNAME@$host:$wise_home/experiments/indirect_response_time/conf
+  scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no $SESSION_CONFIG $USERNAME@$host:$wise_home/experiments/indirect_response_time/conf
   ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
       -o BatchMode=yes $USERNAME@$host "
     # Install Python dependencies.
@@ -447,7 +447,7 @@ for host in $CLIENT_HOSTS; do
 
     # Render workload.yml.
     WISEHOME=${wise_home//\//\\\\\/}
-    sed -i \"s/{{WISEHOME}}/\$WISEHOME/g\" $wise_home/experiments/indirect_response_time/conf/workload.yml
+    sed -i \"s/{{WISEHOME}}/\$WISEHOME/g\" $wise_home/experiments/indirect_response_time/$WORKLOAD_CONFIG
   " &
   sessions[$n_sessions]=$!
   let n_sessions=n_sessions+1

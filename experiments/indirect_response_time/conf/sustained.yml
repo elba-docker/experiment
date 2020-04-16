@@ -1,6 +1,6 @@
 - sessionConfig: {{WISEHOME}}/experiments/indirect_response_time/conf/session.yml
-  noConcurrentSessions: 150
+  noConcurrentSessions: 285
   startTime: 0
-  endTime: 180
-  rampUpDuration: 60
-  rampDownDuration: 60
+  endTime: 300
+  rampUpDuration: 30
+  rampDownDuration: 30

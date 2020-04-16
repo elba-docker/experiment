@@ -44,12 +44,17 @@ readonly QUEUE_PORT=9093
 readonly SUB_HOSTS="<FILL IN>"
 readonly SUB_PORT=9094
 
+# Path of the workload config yml file (relative to the experiment root)
+readonly WORKLOAD_CONFIG="conf/bursty.yml"
+# Path of the session config yml file (relative to the experiment root)
+readonly SESSION_CONFIG="conf/session.yml"
+
 # Apache/mod_wsgi configuration.
 readonly APACHE_PROCESSES=8
 readonly APACHE_THREADSPERPROCESS=4
 
 # Postgres configuration.
-readonly POSTGRES_MAXCONNECTIONS=100
+readonly POSTGRES_MAXCONNECTIONS=175
 
 # Workers configuration.
 readonly NUM_WORKERS=32
