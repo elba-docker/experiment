@@ -561,7 +561,7 @@ for host in $CLIENT_HOSTS; do
 
     # Load balance.
     mkdir -p $wise_home/logs
-    python $wise_home/microblog_bench/client/session.py --config $wise_home/experiments/indirect_response_time/conf/$WORKLOAD_CONFIG --hostname $WEB_HOSTS --port 80 --prefix microblog
+    python $wise_home/microblog_bench/client/session.py --config $wise_home/experiments/indirect_response_time/$WORKLOAD_CONFIG --hostname $WEB_HOSTS --port 80 --prefix microblog
   " &
   sessions[$n_sessions]=$!
   let n_sessions=n_sessions+1
