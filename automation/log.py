@@ -34,11 +34,12 @@ class LogFormatter(logzero.LogFormatter):
 
         record.levelname = custom_levelname(record.levelname)
         record.inner = self._inner % record.__dict__
+        # Remove all blank-only lines
+        lines = [line for line in record.message.splitlines() if len(line.strip()) > 0]
 
         if self._indent:
             inner_indent = len(record.inner) + 1
             indent = " " * inner_indent
-            lines = record.message.splitlines()
             new_lines = []
             effective_width = int(columns) - inner_indent
             for i in range(len(lines)):
@@ -52,8 +53,9 @@ class LogFormatter(logzero.LogFormatter):
                         new_lines.append(indent + line[j])
                     else:
                         new_lines.append(line[j])
-            record.message = "\n".join(new_lines)
+            lines = new_lines
 
+        record.message = "\n".join(lines)
         formatted = self._fmt % record.__dict__
 
         if record.exc_info:

@@ -346,6 +346,7 @@ class TestExecutionThread(threading.Thread):
         ssh.sendline(script_path)
         while not ssh.prompt(timeout=120):
             self.debug(f"\n{ssh.before.decode().strip()}")
+            ssh.expect(r'.+')
         self.debug(f"\n{ssh.before.decode().strip()}")
         self.info("Finished primary script")
         ssh.logout()
