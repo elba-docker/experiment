@@ -1,6 +1,7 @@
 repo: https://github.com/elba-kubernetes/experiment.git
 experiments_path: experiments
 username: jazevedo
+profile: MicroblogBareMetalC8220
 options:
   USERNAME: jazevedo
   HOSTS_TYPE: physical

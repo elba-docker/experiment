@@ -21,6 +21,9 @@ import signal
 import sys
 import time
 from pexpect import pxssh
+from cloudlab import Cloudlab, UnknownStateError, OperationFailed
+import getpass
+import traceback
 
 
 HOST_CONFIG_REGEX = re.compile(r'(?m)^((?:readonly )?[A-Z_]+_HOSTS?)="?.*"?$')
@@ -28,6 +31,8 @@ thread_queue = []
 term_cond = threading.Condition()
 stopping = False
 PROMPT = "$"
+cloudlab = None
+cloudlab_lock = threading.Lock()
 
 
 class Test:
@@ -79,7 +84,7 @@ class ExecutionLogWrapper(object):
 
 
 class TestExecutionThread(threading.Thread):
-    def __init__(self, test, hostname, config_path, log_path, results_path, config):
+    def __init__(self, test, hostname, config_path, log_path, results_path, config, experiment):
         threading.Thread.__init__(self)
         self._test = test
         self._hostname = hostname
@@ -88,6 +93,7 @@ class TestExecutionThread(threading.Thread):
         self._results_path = results_path
         self._config = config
         self._logger = log
+        self._experiment = experiment
 
     def log_msg(self, msg):
         return f"[{self._test.id()}] {msg}"
@@ -171,7 +177,7 @@ class TestExecutionThread(threading.Thread):
                         self.warning(
                             f"Failed to transfer {remote_path} from remote; retrying in {retry_delay}s", internal=True)
                     if wait(retry_delay):
-                        return ExitEarly()
+                        raise ExitEarly()
                 else:
                     if to_remote:
                         self.error(
@@ -248,9 +254,9 @@ class TestExecutionThread(threading.Thread):
                 if exitcode != 0:
                     # Assume failed, flag for retry
                     if i < retry_count - 1:
-                        log.warning(
+                        self.warning(
                             f"Failed to execute command {command} in sequence to host {self._hostname}; retrying in {retry_delay}s", external=True)
-                        log.warning(
+                        self.warning(
                             f"Failed to execute command {command} in sequence to remote; retrying in {retry_delay}s", internal=True)
                         if wait(retry_delay):
                             ssh.close()
@@ -346,7 +352,8 @@ class TestExecutionThread(threading.Thread):
         ssh.sendline(script_path)
         while not ssh.prompt(timeout=120):
             self.debug(f"\n{ssh.before.decode().strip()}")
-            ssh.expect(r'.+')
+            if ssh.before:
+                ssh.expect(r'.+')
         self.debug(f"\n{ssh.before.decode().strip()}")
         self.info("Finished primary script")
         ssh.logout()
@@ -360,13 +367,33 @@ class TestExecutionThread(threading.Thread):
         self.transfer(remote_path=results_path,
                       local_dest=self._results_path, retry_count=5)
 
+        # Terminate the experiment on cloudlab
+        try:
+            cloudlab_lock.acquire()
+            cloudlab.terminate(self._experiment)
+        except OperationFailed as ex:
+            log.error("Could not terminate experiment on cloudlab:")
+            log.error(ex)
+        except UnknownStateError as ex:
+            log.error(
+                "Unknown state reached while terminating experiment on cloudlab driver:")
+            log.error(ex)
+        except Exception as ex:
+            log.error(
+                "Encountered error while terminating experiment on cloudlab driver:")
+            log.error(ex)
+        finally:
+            cloudlab_lock.release()
+
 
 @click.command()
 @click.option("--config", "-c", prompt="Automation config YAML file")
 @click.option("--repo_path", "-r", prompt="Path to locally cloned repo")
-@click.option("--cert", "-C", prompt="Path to private SSL certificate", default="~/.ssh/id_rsa")
-@click.option("--threads", "-t", prompt="Maximum concurrency for running experiments", default=1)
-def main(config=None, repo_path=None, cert=None, threads=None):
+@click.option("--cert", "-C", prompt="Path to private SSL certificate", default="~/.ssh/id_rsa", required=False)
+@click.option("--threads", "-t", prompt="Maximum concurrency for running experiments", default=1, required=False)
+@click.option("--password", "-p", prompt="Path to file containing password", default=None, required=False)
+@click.option("--headless/--no-headless", prompt="Run chrome driver in headless mode", default=False)
+def main(config=None, repo_path=None, cert=None, threads=None, password=None, headless=False):
     if config is None:
         return
 
@@ -380,11 +407,17 @@ def main(config=None, repo_path=None, cert=None, threads=None):
     if "max_concurrency" not in config_dict:
         config_dict["max_concurrency"] = threads
 
+    if "password_path" not in config_dict:
+        config_dict["password_path"] = password
+
+    if "headless" not in config_dict:
+        config_dict["headless"] = headless
+
     run(config_dict, repo_path)
 
 
 def run(config, repo_path):
-    log.info("Starting semi-automated experiment execution")
+    log.info("Starting automated experiment execution")
     if "tests" not in config or len(config["tests"]) == 0:
         log.error("No tests found. Exiting")
         return
@@ -405,8 +438,64 @@ def run(config, repo_path):
         return
 
     max_concurrency = config.get("max_concurrency", 1)
-    global thread_queue
     tests = flatten_tests(config)
+
+    # Initialize cloudlab driver
+    username = config.get("username")
+    if username is None:
+        log.error("Cloudlab experiment username not specified")
+        return
+    profile = config.get("profile")
+    if profile is None:
+        log.error("Cloudlab experiment profile not specified")
+        return
+
+    # Load Cloudlab password
+    if 'password_path' in config:
+        password_path = config['password_path']
+        try:
+            with open(password_path, 'r') as password_file:
+                password = password_file.read().strip()
+        except IOError as ex:
+            log.error(
+                f"Could not load Cloudlab password file at {password_path}:")
+            log.error(ex)
+            return
+    else:
+        password = getpass.getpass(
+            prompt=f'Cloudlab password for {username}: ')
+
+    # Instantiate the driver
+    headless = bool(config.get("headless"))
+    global cloudlab
+    log.info(
+        f"Initializing {'headless' if headless else 'gui'} cloudlab driver for {username} with profile {profile}")
+    cloudlab = Cloudlab(username, password, profile, headless)
+
+    # Attempt to log in
+    try:
+        cloudlab_lock.acquire()
+        log.info(f"Logging into cloudlab")
+        cloudlab.login()
+    except OperationFailed as ex:
+        log.error("Could not log into cloudlab:")
+        log.error(ex)
+        log.error(traceback.format_exc())
+        return
+    except UnknownStateError as ex:
+        log.error("Unknown state reached while logging into cloudlab driver:")
+        log.error(ex)
+        log.error(traceback.format_exc())
+        return
+    except Exception as ex:
+        log.error("Encountered error while logging into cloudlab driver:")
+        log.error(ex)
+        log.error(traceback.format_exc())
+        return
+    else:
+        log.info(f"Cloudlab login successful")
+    finally:
+        cloudlab_lock.release()
 
     # Use manual list to allow for rewinding in case of error
     i = -1
@@ -438,13 +527,34 @@ def run(config, repo_path):
         with open(config_sh_path, "r") as config_file:
             test_config = config_file.read()
 
-        # Get hosts and then assign
-        hosts = get_hosts(test.id())
-        if len(hosts) == 0:
-            log.error(f"No hosts found in manifest XML. Restarting test")
-            i = i - 1
+        # Provision experiment from cloudlab
+        try:
+            cloudlab_lock.acquire()
+            log.info(f"Provisioning new experiment from cloudlab")
+            experiment = cloudlab.provision()
+        except OperationFailed as ex:
+            log.error("Could not provision experiment on cloudlab:")
+            log.error(ex)
+            log.error(traceback.format_exc())
             continue
+        except UnknownStateError as ex:
+            log.error("Unknown state reached while logging into cloudlab driver:")
+            log.error(ex)
+            log.error(traceback.format_exc())
+            continue
+        except Exception as ex:
+            log.error("Encountered error while logging into cloudlab driver:")
+            log.error(ex)
+            log.error(traceback.format_exc())
+            continue
+        else:
+            log.info(
+                f"Successfully provisioned new experiment from cloudlab: {experiment}")
+        finally:
+            cloudlab_lock.release()
 
+        # Get hosts and then assign
+        hosts = experiment.hostnames()
         executor_host = hosts[0]
         experiment_hosts = hosts[1:]
 
@@ -485,40 +595,9 @@ def run(config, repo_path):
         log_path = path.join("logs", test.id() + ".log")
         results_path = path.join("results", test.id() + ".tar.gz")
         test_thread = TestExecutionThread(test, executor_host, config_sh_path,
-                                          log_path, results_path, config)
+                                          log_path, results_path, config, experiment)
         test_thread.start()
         thread_queue.append(test_thread)
-
-
-def get_hosts(test_id):
-    """
-    Gets the hosts by prompting the user
-    """
-
-    # Get multiline input
-    log.info('\x1b[2;30;44m' +
-             f'[{test_id}] ▼▼▼ Paste CloudLab manifest. Enter, then Ctrl-D to finish ▼▼▼ ' + '\x1b[0m')
-    content = hidden_multi_input()
-    log.info('\x1b[2;30;42m' +
-             f'[{test_id}] ▲▲▲ Got cloudlab manifest ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲ ' + '\x1b[0m')
-    try:
-        # instead of ET.fromstring(xml)
-        it = ET.iterparse(StringIO(content))
-        for _, el in it:
-            _, has_namespace, postfix = el.tag.partition('}')
-            if has_namespace:
-                el.tag = postfix  # strip all namespaces
-        root = it.root
-
-        hostnames = []
-        for node_tag in root.findall('.//node'):
-            login_tag = node_tag.find('.//login')
-            node_name = login_tag.get('hostname')
-            hostnames.append(node_name)
-        return hostnames
-    except Exception as e:
-        log.error(e)
-        return []
 
 
 def flatten_tests(config):
