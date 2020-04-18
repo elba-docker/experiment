@@ -28,7 +28,6 @@ readonly COLLECTION_INTERVAL="50"
 # Hostnames of each tier.
 # Example (bare metal host): pc853.emulab.net
 # Example (virtual machine): 10.254.3.128
-readonly CLIENT_HOSTS="<FILL IN>"
 readonly WEB_HOSTS="<FILL IN>"
 readonly POSTGRESQL_HOST="<FILL IN>"
 readonly WORKER_HOSTS="<FILL IN>"
@@ -43,6 +42,8 @@ readonly QUEUE_HOSTS="<FILL IN>"
 readonly QUEUE_PORT=9093
 readonly SUB_HOSTS="<FILL IN>"
 readonly SUB_PORT=9094
+# Client hostnames
+readonly CLIENT_HOSTS="<FILL IN>"
 
 # Path of the workload config yml file (relative to the experiment root)
 readonly WORKLOAD_CONFIG="conf/bursty.yml"
