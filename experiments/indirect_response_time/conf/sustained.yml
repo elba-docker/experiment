@@ -1,4 +1,4 @@
-- sessionConfig: {{WISEHOME}}/experiments/indirect_response_time/conf/session.yml
+- sessionConfig: "{{WISEHOME}}/experiments/indirect_response_time/conf/session.yml"
   noConcurrentSessions: 285
   startTime: 0
   endTime: 300
