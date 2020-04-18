@@ -50,10 +50,6 @@ class Experiment(ProvisionedExperiment):
     def hostnames(self):
         return self._hostnames
 
-    def __repr__(self):
-        N = "\n"
-        return f"{self._name} ({self._uuid}):{N}{N.join(self._hostnames)}"
-
 
 class Cloudlab():
     def __init__(self, username, password, profile, headless):

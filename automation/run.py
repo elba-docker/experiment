@@ -24,6 +24,7 @@ from pexpect import pxssh
 from cloudlab import Cloudlab, UnknownStateError, OperationFailed
 import getpass
 import traceback
+import itertools
 
 
 HOST_CONFIG_REGEX = re.compile(r'(?m)^((?:readonly )?[A-Z_]+_HOSTS?)="?.*"?$')
@@ -33,6 +34,13 @@ stopping = False
 PROMPT = "$"
 cloudlab = None
 cloudlab_lock = threading.Lock()
+
+
+def wait(delay):
+    term_cond.acquire()
+    term_cond.wait(timeout=delay)
+    term_cond.release()
+    return stopping
 
 
 class Test:
@@ -52,13 +60,6 @@ class Test:
 
     def __repr__(self):
         return f"[{self._id}] - {self._experiment}:\n{json.dumps(self._options)}"
-
-
-def wait(delay):
-    term_cond.acquire()
-    term_cond.wait(timeout=delay)
-    term_cond.release()
-    return stopping
 
 
 class TestFailed(Exception):
@@ -369,6 +370,9 @@ class TestExecutionThread(threading.Thread):
 
         # Terminate the experiment on cloudlab
         try:
+            # Check for stopping before attempting to acquire mutex (might be poisoned)
+            if stopping:
+                return
             cloudlab_lock.acquire()
             cloudlab.terminate(self._experiment)
         except OperationFailed as ex:
@@ -384,6 +388,10 @@ class TestExecutionThread(threading.Thread):
             log.error(ex)
         finally:
             cloudlab_lock.release()
+
+        # Sleep for 5 minutes between teardown and provisioning
+        if wait(5 * 60):
+            raise ExitEarly()
 
 
 @click.command()
@@ -529,6 +537,9 @@ def run(config, repo_path):
 
         # Provision experiment from cloudlab
         try:
+            # Check for stopping before attempting to acquire mutex (might be poisoned)
+            if stopping:
+                return
             cloudlab_lock.acquire()
             log.info(f"Provisioning new experiment from cloudlab")
             experiment = cloudlab.provision()
@@ -548,8 +559,10 @@ def run(config, repo_path):
             log.error(traceback.format_exc())
             continue
         else:
+            # Indent hostnames string
+            hostnames_str = "\n".join([f"  {host}" for host in hostnames])
             log.info(
-                f"Successfully provisioned new experiment from cloudlab: {experiment}")
+                f"Successfully provisioned new experiment from cloudlab: {experiment}\n{hostnames_str}")
         finally:
             cloudlab_lock.release()
 
@@ -683,6 +696,7 @@ def join_all():
 def join_then_quit():
     global stopping
     stopping = True
+
     term_cond.acquire()
     term_cond.notify_all()
     term_cond.release()
