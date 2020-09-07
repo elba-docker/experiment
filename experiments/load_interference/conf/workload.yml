@@ -1,0 +1,6 @@
+- sessionConfig: "{{WISEHOME}}/experiments/indirect_response_time/conf/session.yml"
+  noConcurrentSessions: {{NUMBER_SESSIONS}}
+  startTime: 0
+  endTime: {{TOTAL_TIME}}
+  rampUpDuration: {{RAMP_UP}}
+  rampDownDuration: {{RAMP_DOWN}}
