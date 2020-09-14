@@ -3,6 +3,9 @@
 # Load interference experiment to test the overhead of using rAdvisor
 # to instrument running containers
 
+# Load the current branch
+git_branch=$(git branch --show-current)
+
 # Change to the parent directory.
 cd $(dirname "$(dirname "$(readlink -fm "$0")")")
 echo "[$(date +%s)] CD: $(pwd)"
@@ -140,7 +143,7 @@ for host in $all_hosts; do
     sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git
     sudo rm -rf $wise_home
     sudo mkdir $wise_home
-    sudo git clone https://github.com/elba-docker/experiment.git $wise_home
+    sudo git clone --single-branch --branch \"$git_branch\" https://github.com/elba-docker/experiment.git $wise_home
 
     # Take ownership of the wise-home directory
     sudo chown -R $USERNAME $wise_home
@@ -582,7 +585,7 @@ for host in $CLIENT_HOSTS; do
     # Sleep until the start
     current_ts=\$(date +%s%3N)
     difference=\$(($start_ts - \$current_ts))
-    time sleep \$(echo \"\$difference / 1000\" | bc -l)
+    sleep \$(echo \"\$difference / 1000\" | bc -l)
     python $wise_home/microblog_bench/client/session.py --config $wise_home/experiments/load_interference/$WORKLOAD_CONFIG --hostname $WEB_HOSTS --port 80 --prefix microblog
   " &
   sessions[$n_sessions]=$!
@@ -595,7 +598,7 @@ for host in $load_interference_hosts; do
     # Sleep until the start of load interference
     current_ts=\$(date +%s%3N)
     difference=\$(($interference_start_ts - \$current_ts))
-    time sleep \$(echo \"\$difference / 1000\" | bc -l)
+    sleep \$(echo \"\$difference / 1000\" | bc -l)
     # Run docker containers (in parallel)
     for i in {1..$NUM_CONTAINERS}
     do
