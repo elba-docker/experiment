@@ -4,7 +4,7 @@
 # to instrument running containers
 
 # Load the current branch
-git_branch=$(git branch --show-current)
+git_branch=$(git rev-parse --abbrev-ref HEAD)
 
 # Change to the parent directory.
 cd $(dirname "$(dirname "$(readlink -fm "$0")")")
