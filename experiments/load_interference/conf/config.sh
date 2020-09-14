@@ -37,6 +37,11 @@ readonly NUM_CPU_STRESSORS="2"
 # Number of Memory stressor process forks to spawn (via `stress`)
 readonly NUM_MEM_STRESSORS="2"
 
+# Whether to enable rAdvisor; either 0 or 1
+readonly ENABLE_RADVISOR=1
+# Whether to enable collectl; either 0 or 1
+readonly ENABLE_COLLECTL=1
+
 # Hostnames of each tier.
 # Example (bare metal host): pc853.emulab.net
 # Example (virtual machine): 10.254.3.128

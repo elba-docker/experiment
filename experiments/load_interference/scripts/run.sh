@@ -1,6 +1,7 @@
 #!/bin/bash
 
-# Indirect overhead measurement via a microservice application benchmark, Wise
+# Load interference experiment to test the overhead of using rAdvisor
+# to instrument running containers
 
 # Change to the parent directory.
 cd $(dirname "$(dirname "$(readlink -fm "$0")")")
@@ -13,10 +14,13 @@ source conf/config.sh
 all_hosts="$CLIENT_HOSTS $WEB_HOSTS $POSTGRESQL_HOST $WORKER_HOSTS $MICROBLOG_HOSTS $AUTH_HOSTS $INBOX_HOSTS $QUEUE_HOSTS $SUB_HOSTS"
 # All hosts running Docker
 docker_hosts="$MICROBLOG_HOSTS $AUTH_HOSTS $INBOX_HOSTS $QUEUE_HOSTS $SUB_HOSTS"
-# All hosts running Docker and getting instrumented with rAdvisor/moby
+# All hosts running Docker and getting instrumented with rAdvisor
 container_instrumented_hosts="$MICROBLOG_HOSTS $AUTH_HOSTS $INBOX_HOSTS $QUEUE_HOSTS $SUB_HOSTS"
 # All hosts getting instrumented with collectl/milliscope
 instrumented_hosts="$CLIENT_HOSTS $WEB_HOSTS $POSTGRESQL_HOST $WORKER_HOSTS $MICROBLOG_HOSTS $AUTH_HOSTS $INBOX_HOSTS $QUEUE_HOSTS $SUB_HOSTS"
+# All hosts that have the load interference task running in the background
+# (NOTE: this does not include the $WEB_HOSTS, $POSTGRESQL_HOST, or $WORKER_HOSTS)
+load_interference_hosts="$MICROBLOG_HOSTS $AUTH_HOSTS $INBOX_HOSTS $QUEUE_HOSTS $SUB_HOSTS"
 # Maps microservice container image names to the hosts they should be initialized on
 declare -A microservice_hosts=(
   [blog]=$MICROBLOG_HOSTS
@@ -111,7 +115,7 @@ fi
 
 
 echo "[$(date +%s)] Common software setup:"
-wise_home="$fs_rootdir/wise-kubernetes"
+wise_home="$fs_rootdir/wise-docker"
 sessions=()
 n_sessions=0
 echo "[$(date +%s)] fs_rootdir: $fs_rootdir"
@@ -132,11 +136,11 @@ for host in $all_hosts; do
     # Synchronize apt.
     sudo apt-get update
 
-    # Clone wise-kubernetes.
+    # Clone the experiment.
     sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git
     sudo rm -rf $wise_home
     sudo mkdir $wise_home
-    sudo git clone https://github.com/elba-kubernetes/experiment.git $wise_home
+    sudo git clone https://github.com/elba-docker/experiment.git $wise_home
 
     # Take ownership of the wise-home directory
     sudo chown -R $USERNAME $wise_home
@@ -149,34 +153,13 @@ for host in $all_hosts; do
         stable\"
       sudo apt-get update
 
-      # Install Docker.
-      if [[ \"$USE_PATCHED_DOCKER\" -eq 1 ]]; then
-        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \\
-          containerd.io \\
-          $wise_home/artifacts/docker-ce_19.03.8~elba~3-0~ubuntu-bionic_amd64.deb \\
-          $wise_home/artifacts/docker-ce-cli_19.03.8~elba~3-0~ubuntu-bionic_amd64.deb
-      else
-        ## Install Docker CE.
-        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \\
-          containerd.io=1.2.10-3 \\
-          docker-ce=5:19.03.4~3-0~ubuntu-\$(lsb_release -cs) \\
-          docker-ce-cli=5:19.03.4~3-0~ubuntu-\$(lsb_release -cs)
-      fi
+      # Install Docker CE.
+      sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \\
+        containerd.io=1.2.10-3 \\
+        docker-ce=5:19.03.4~3-0~ubuntu-\$(lsb_release -cs) \\
+        docker-ce-cli=5:19.03.4~3-0~ubuntu-\$(lsb_release -cs)
 
       # Setup daemon.
-      if [[ \"$USE_PATCHED_DOCKER\" -eq 1 ]] && [[ \"$is_instrumented\" -eq 1 ]]; then
-cat <<EOF | sudo tee /etc/docker/daemon.json
-{
-  \"exec-opts\": [\"native.cgroupdriver=systemd\"],
-  \"log-driver\": \"json-file\",
-  \"log-opts\": {
-    \"max-size\": \"100m\"
-  },
-  \"storage-driver\": \"overlay2\",
-  \"stats-interval\": $COLLECTION_INTERVAL
-}
-EOF
-      else
 cat <<EOF | sudo tee /etc/docker/daemon.json
 {
   \"exec-opts\": [\"native.cgroupdriver=systemd\"],
@@ -187,7 +170,6 @@ cat <<EOF | sudo tee /etc/docker/daemon.json
   \"storage-driver\": \"overlay2\"
 }
 EOF
-      fi
 
       sudo mkdir -p /etc/systemd/system/docker.service.d
       # Restart docker.
@@ -428,12 +410,26 @@ done
 
 
 echo "[$(date +%s)] Client setup:"
+# Create the workload file render pattern (passed to sed) from the map
+declare -A workload_variables=(
+  [WISEHOME]=$wise_home
+  [NUMBER_SESSIONS]=$AUTH_HOSTS
+  # formula for the total time
+  [TOTAL_TIME]=$(((4 * $T_BUFFER) + (2 * $T_RAMP) + $T_NO_INTERFERENCE + $T_INTERFERENCE))
+  [RAMP_UP]=$T_RAMP
+  [RAMP_DOWN]=$T_RAMP
+)
+variable_substitutions=""
+for K in "${!workload_variables[@]}"; do
+  variable_substitutions="$K='${workload_variables[$K]}' ${variable_substitutions}"
+done
+# Perform the remote SSH execution
 sessions=()
 n_sessions=0
 for host in $CLIENT_HOSTS; do
   echo "  [$(date +%s)] Setting up client on host $host"
-  scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no $WORKLOAD_CONFIG $USERNAME@$host:$wise_home/experiments/indirect_response_time/conf
-  scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no $SESSION_CONFIG $USERNAME@$host:$wise_home/experiments/indirect_response_time/conf
+  scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no $WORKLOAD_CONFIG $USERNAME@$host:$wise_home/experiments/load_interference/conf
+  scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no $SESSION_CONFIG $USERNAME@$host:$wise_home/experiments/load_interference/conf
   ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
       -o BatchMode=yes $USERNAME@$host "
     # Install Python dependencies.
@@ -446,8 +442,7 @@ for host in $CLIENT_HOSTS; do
     deactivate
 
     # Render workload.yml (WORKLOAD_CONFIG).
-    WISEHOME=${wise_home//\//\\\\\/}
-    sed -i \"s/{{WISEHOME}}/\$WISEHOME/g\" $wise_home/experiments/indirect_response_time/$WORKLOAD_CONFIG
+    $variable_substitutions envsubst < $wise_home/experiments/load_interference/$WORKLOAD_CONFIG | tee $wise_home/experiments/load_interference/$WORKLOAD_CONFIG
   " &
   sessions[$n_sessions]=$!
   let n_sessions=n_sessions+1
@@ -544,6 +539,29 @@ done
 sleep 16
 
 
+echo "[$(date +%s)] Calculating experiment schedule:"
+# Here we determine when to start the experiment,
+# and when to start the load interference part
+current_ts=$(date +%s%3N)
+# Start after 20 more seconds
+start_ts=$(($current_time_ms + (20 * 1000) ))
+# Start the no-interference collection after ramping up & going through a buffer interval
+no_interference_recording_ts=$(($start_ts + ($T_RAMP + $T_BUFFER) * 1000))
+# start the interference after the end of the no-interference interval and an additional buffer
+interference_start_ts=$(($no_interference_start_ts + ($T_NO_INTERFERENCE + $T_BUFFER) * 1000))
+# start recording during the interference interval after an additional buffer interval
+interference_recording_ts=$(($interference_recording_ts + ($T_BUFFER) * 1000))
+interference_duration_seconds=$(($T_INTERFERENCE + (2 * $T_BUFFER) ))
+echo "  Start: $start_ts"
+echo "  Beginning of no-interference recording: $no_interference_recording_ts"
+echo "  End of no-interference recording: $(($no_interference_recording_ts + ($T_NO_INTERFERENCE) * 1000))"
+echo "  Beginning of interference load: $interference_start_ts"
+echo "  Beginning of interference recording: $interference_recording_ts"
+echo "  End of interference recording: $(($no_interference_recording_ts + ($T_INTERFERENCE) * 1000))"
+echo "  End of interference load: $(($no_interference_recording_ts + ($T_INTERFERENCE + $T_BUFFER) * 1000))"
+echo "  End: $(($no_interference_recording_ts + ($T_INTERFERENCE + $T_BUFFER + $T_RAMP) * 1000))"
+
+
 echo "[$(date +%s)] Benchmark execution:"
 sessions=()
 n_sessions=0
@@ -561,7 +579,30 @@ for host in $CLIENT_HOSTS; do
 
     # Load balance.
     mkdir -p $wise_home/logs
-    python $wise_home/microblog_bench/client/session.py --config $wise_home/experiments/indirect_response_time/$WORKLOAD_CONFIG --hostname $WEB_HOSTS --port 80 --prefix microblog
+    # Sleep until the start
+    current_ts=\$(date +%s%3N)
+    difference=\$(($start_ts - \$current_ts))
+    time sleep \$(echo \"\$difference / 1000\" | bc -l)
+    python $wise_home/microblog_bench/client/session.py --config $wise_home/experiments/load_interference/$WORKLOAD_CONFIG --hostname $WEB_HOSTS --port 80 --prefix microblog
+  " &
+  sessions[$n_sessions]=$!
+  let n_sessions=n_sessions+1
+done
+for host in $load_interference_hosts; do
+  echo "  [$(date +%s)] Preparing to execute load interference task in $host"
+  ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
+      -o BatchMode=yes $USERNAME@$host "
+    # Sleep until the start of load interference
+    current_ts=\$(date +%s%3N)
+    difference=\$(($interference_start_ts - \$current_ts))
+    time sleep \$(echo \"\$difference / 1000\" | bc -l)
+    # Run docker containers (in parallel)
+    for i in {1..$NUM_CONTAINERS}
+    do
+        sudo docker run --cpus $CPU_PER_STRESS_CONTAINER -d --memory $MEM_PER_STRESS_CONTAINER jazevedo6/load_interference:v1.0 bash -c \"
+            stress --cpu $NUM_CPU_STRESSORS --vm $NUM_MEM_STRESSORS --vm-bytes 128M --timeout ${interference_duration_seconds}s
+        \" &
+    done
   " &
   sessions[$n_sessions]=$!
   let n_sessions=n_sessions+1
@@ -574,7 +615,7 @@ done
 echo "[$(date +%s)] Cleanup:"
 sessions=()
 n_sessions=0
-# <https://github.com/elba-kubernetes/moby/blob/277079e650c835624a303ed3de4f90d0f6db5814/daemon/stats.go#L51>
+# <https://github.com/elba-docker/moby/blob/277079e650c835624a303ed3de4f90d0f6db5814/daemon/stats.go#L51>
 patched_moby_logs="/var/logs/docker/stats"
 for K in "${!host_log_names[@]}"; do
   log_name="$K"
@@ -631,10 +672,6 @@ for K in "${!host_log_names[@]}"; do
           if [[ \"$ENABLE_RADVISOR\" -eq 1 ]]; then
             mkdir -p logs/radvisor
             mv $radvisor_stats/*.log logs/radvisor
-          fi
-          if [[ \"$USE_PATCHED_DOCKER\" -eq 1 ]]; then
-            mkdir -p logs/moby
-            sudo mv $patched_moby_logs/*.log logs/moby
           fi
         fi
 
