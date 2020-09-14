@@ -544,7 +544,7 @@ echo "[$(date +%s)] Calculating experiment schedule:"
 # and when to start the load interference part
 current_ts=$(date +%s%3N)
 # Start after 20 more seconds
-start_ts=$(($current_time_ms + (20 * 1000) ))
+start_ts=$(($current_ts + (20 * 1000) ))
 # Start the no-interference collection after ramping up & going through a buffer interval
 no_interference_recording_ts=$(($start_ts + ($T_RAMP + $T_BUFFER) * 1000))
 # start the interference after the end of the no-interference interval and an additional buffer
