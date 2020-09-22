@@ -413,12 +413,13 @@ done
 
 
 echo "[$(date +%s)] Client setup:"
+TOTAL_TIME=$(((2 * $T_BUFFER) + (2 * $T_RAMP) + $T_COLLECTION))
 # Create the workload file render pattern (passed to sed) from the map
 declare -A workload_variables=(
   [WISEHOME]=$wise_home
-  [NUMBER_SESSIONS]=$AUTH_HOSTS
+  [NUMBER_SESSIONS]=$NUMBER_SESSIONS
   # formula for the total time
-  [TOTAL_TIME]=$(((4 * $T_BUFFER) + (2 * $T_RAMP) + $T_NO_INTERFERENCE + $T_INTERFERENCE))
+  [TOTAL_TIME]=$TOTAL_TIME
   [RAMP_UP]=$T_RAMP
   [RAMP_DOWN]=$T_RAMP
 )
@@ -542,29 +543,6 @@ done
 sleep 16
 
 
-echo "[$(date +%s)] Calculating experiment schedule:"
-# Here we determine when to start the experiment,
-# and when to start the load interference part
-current_ts=$(date +%s%3N)
-# Start after 20 more seconds
-start_ts=$(($current_ts + (20 * 1000) ))
-# Start the no-interference collection after ramping up & going through a buffer interval
-no_interference_recording_ts=$(($start_ts + ($T_RAMP + $T_BUFFER) * 1000))
-# start the interference after the end of the no-interference interval and an additional buffer
-interference_start_ts=$(($no_interference_start_ts + ($T_NO_INTERFERENCE + $T_BUFFER) * 1000))
-# start recording during the interference interval after an additional buffer interval
-interference_recording_ts=$(($interference_recording_ts + ($T_BUFFER) * 1000))
-interference_duration_seconds=$(($T_INTERFERENCE + (2 * $T_BUFFER) ))
-echo "  Start: $start_ts"
-echo "  Beginning of no-interference recording: $no_interference_recording_ts"
-echo "  End of no-interference recording: $(($no_interference_recording_ts + ($T_NO_INTERFERENCE) * 1000))"
-echo "  Beginning of interference load: $interference_start_ts"
-echo "  Beginning of interference recording: $interference_recording_ts"
-echo "  End of interference recording: $(($no_interference_recording_ts + ($T_INTERFERENCE) * 1000))"
-echo "  End of interference load: $(($no_interference_recording_ts + ($T_INTERFERENCE + $T_BUFFER) * 1000))"
-echo "  End: $(($no_interference_recording_ts + ($T_INTERFERENCE + $T_BUFFER + $T_RAMP) * 1000))"
-
-
 echo "[$(date +%s)] Benchmark execution:"
 sessions=()
 n_sessions=0
@@ -582,34 +560,29 @@ for host in $CLIENT_HOSTS; do
 
     # Load balance.
     mkdir -p $wise_home/logs
-    # Sleep until the start
-    current_ts=\$(date +%s%3N)
-    difference=\$(($start_ts - \$current_ts))
-    sleep \$(echo \"\$difference / 1000\" | bc -l)
     python $wise_home/microblog_bench/client/session.py --config $wise_home/experiments/load_interference/$WORKLOAD_CONFIG --hostname $WEB_HOSTS --port 80 --prefix microblog
   " &
   sessions[$n_sessions]=$!
   let n_sessions=n_sessions+1
 done
-for host in $load_interference_hosts; do
-  echo "  [$(date +%s)] Preparing to execute load interference task in $host"
-  ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
-      -o BatchMode=yes $USERNAME@$host "
-    # Sleep until the start of load interference
-    current_ts=\$(date +%s%3N)
-    difference=\$(($interference_start_ts - \$current_ts))
-    sleep \$(echo \"\$difference / 1000\" | bc -l)
-    # Run docker containers (in parallel)
-    for i in {1..$NUM_CONTAINERS}
-    do
-        sudo docker run --cpus $CPU_PER_STRESS_CONTAINER -d --memory $MEM_PER_STRESS_CONTAINER jazevedo6/load_interference:v1.0 bash -c \"
-            stress --cpu $NUM_CPU_STRESSORS --vm $NUM_MEM_STRESSORS --vm-bytes 128M --timeout ${interference_duration_seconds}s
-        \" &
-    done
-  " &
-  sessions[$n_sessions]=$!
-  let n_sessions=n_sessions+1
-done
+if [[ "$ENABLE_LOAD_INTERFERENCE" -eq 1 ]]; then
+  echo "[$(date +%s)] Running load interference containers:"
+  for host in $load_interference_hosts; do
+    echo "  [$(date +%s)] Preparing to execute load interference task in $host"
+    ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
+        -o BatchMode=yes $USERNAME@$host "
+      # Run docker containers (in parallel)
+      for i in {1..$NUM_CONTAINERS}
+      do
+          sudo docker run --cpus $CPU_PER_STRESS_CONTAINER -d --memory $MEM_PER_STRESS_CONTAINER jazevedo6/load_interference:v1.0 bash -c \"
+              stress --cpu $NUM_CPU_STRESSORS --vm $NUM_MEM_STRESSORS --vm-bytes 128M --timeout ${TOTAL_TIME}s
+          \" &
+      done
+    " &
+    sessions[$n_sessions]=$!
+    let n_sessions=n_sessions+1
+  done
+fi
 for session in ${sessions[*]}; do
   wait $session
 done

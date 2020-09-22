@@ -13,19 +13,21 @@ readonly HARDWARE_TYPE="<FILL IN>"
 # Number of seconds to use when ramping up/down experiment (data ignored during)
 readonly T_RAMP=<FILL_IN>
 # Number of seconds to use as a buffer between phases where data is not collected
-# (used to combat potential desynchronization)
 readonly T_BUFFER=<FILL_IN>
-# Number of seconds to use to collect data without load interference
-readonly T_NO_INTERFERENCE=<FILL_IN>
-# Number of seconds to use to collect data with load interference
-readonly T_INTERFERENCE=<FILL_IN>
+# Number of seconds to use to collect data
+readonly T_COLLECTION=<FILL_IN>
 
 # Number of CPU cores to leave enabled
 readonly ENABLED_CPUS="4"
 # Period for rAdvisor between running the polling thread to find new collection targets
 readonly POLLING_INTERVAL="6s"
-# Period between collection ticks for Radvisor
+# Period between collection ticks for rAdvisor
 readonly COLLECTION_INTERVAL="50ms"
+# Number of sessions to run in the mock workload
+readonly NUMBER_SESSIONS="160"
+
+# Whether to enable the load interference
+readonly ENABLE_LOAD_INTERFERENCE=<FILL_IN>
 # Number of stressor containers to spawn as a part of the benchmark during load interference
 readonly NUM_STRESS_CONTAINERS="4"
 # CPU quota per container to limit the effect of the CPU stressor
