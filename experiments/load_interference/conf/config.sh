@@ -25,6 +25,10 @@ readonly POLLING_INTERVAL="6s"
 readonly COLLECTION_INTERVAL="50ms"
 # Number of sessions to run in the mock workload
 readonly NUMBER_SESSIONS="160"
+# Niceness to give to rAdvisor
+readonly RADVISOR_NICENESS=-1
+# Niceness to give to collectl
+readonly COLLECTL_NICENESS=-1
 
 # Whether to enable the load interference
 readonly ENABLE_LOAD_INTERFERENCE=<FILL_IN>

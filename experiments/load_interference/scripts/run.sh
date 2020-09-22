@@ -519,16 +519,17 @@ for host in $all_hosts; do
       # Only activate collectl if enabled
       if [[ \"$ENABLE_COLLECTL\" -eq 1 ]]; then
         mkdir -p collectl/data
-        nohup sudo nice -n -1 /usr/bin/collectl -sCDmnt -i.05 -oTm -P -f collectl/data/coll > /dev/null 2>&1 &
+        nohup sudo nice -n $COLLECTL_NICENESS /usr/bin/collectl -sCDmnt -i.05 -oTm -P -f collectl/data/coll > /dev/null 2>&1 &
       fi
     fi
 
     # Only activate rAdvisor if enabled
     if [[ \"$is_docker_instrumented\" -eq 1 ]]; then
       if [[ \"$ENABLE_RADVISOR\" -eq 1 ]]; then
+        echo \" Running rAdvisor on $host\"
         mkdir -p $radvisor_stats
         chmod +x ./artifacts/radvisor
-        nohup sudo nice -n -1 ./artifacts/radvisor run docker -d $radvisor_stats -p $POLLING_INTERVAL -i ${COLLECTION_INTERVAL}ms --quiet > /dev/null 2>&1 &
+        nohup sudo nice -n $RADVISOR_NICENESS ./artifacts/radvisor run docker -d $radvisor_stats -p $POLLING_INTERVAL -i ${COLLECTION_INTERVAL}ms -v > $radvisor_stats log.out 2>&1 &
       fi
     fi
   " &
@@ -586,7 +587,6 @@ fi
 for session in ${sessions[*]}; do
   wait $session
 done
-
 
 echo "[$(date +%s)] Cleanup:"
 sessions=()
