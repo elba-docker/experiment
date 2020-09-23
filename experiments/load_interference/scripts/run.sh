@@ -499,6 +499,10 @@ for host in $all_hosts; do
   if [[ " $container_instrumented_hosts " =~ .*\ $host\ .* ]]; then is_docker_instrumented=1; else is_docker_instrumented=0; fi
   if [[ " $instrumented_hosts " =~ .*\ $host\ .* ]]; then is_instrumented=1; else is_instrumented=0; fi
 
+  # Run rAdvisor using verbose output if in debug mode
+  if [[ "$WISE_DEBUG" -eq 1 ]]; then radvisor_args="-v"; else radvisor_args="--quiet"; fi
+  if [[ "$WISE_DEBUG" -eq 1 ]]; then radvisor_out="$radvisor_stats/radvisor.log"; else radvisor_out="/dev/null"; fi
+
   ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
       -o BatchMode=yes $USERNAME@$host "
     cd $wise_home
@@ -529,7 +533,7 @@ for host in $all_hosts; do
         echo \" Running rAdvisor on $host\"
         mkdir -p $radvisor_stats
         chmod +x ./artifacts/radvisor
-        nohup sudo nice -n $RADVISOR_NICENESS ./artifacts/radvisor run docker -d $radvisor_stats -p $POLLING_INTERVAL -i ${COLLECTION_INTERVAL}ms -v > $radvisor_stats log.out 2>&1 &
+        nohup sudo nice -n $RADVISOR_NICENESS ./artifacts/radvisor run docker -d $radvisor_stats -p $POLLING_INTERVAL -i ${COLLECTION_INTERVAL}ms $radvisor_args > $radvisor_out 2>&1 &
       fi
     fi
   " &
