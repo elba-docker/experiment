@@ -533,7 +533,7 @@ for host in $all_hosts; do
         echo \" Running rAdvisor on $host\"
         mkdir -p $radvisor_stats
         chmod +x ./artifacts/radvisor
-        nohup sudo nice -n $RADVISOR_NICENESS ./artifacts/radvisor run docker -d $radvisor_stats -p $POLLING_INTERVAL -i ${COLLECTION_INTERVAL}ms $radvisor_args > $radvisor_out 2>&1 &
+        nohup sudo nice -n $RADVISOR_NICENESS ./artifacts/radvisor run docker -d $radvisor_stats -p $POLLING_INTERVAL -i $COLLECTION_INTERVAL $radvisor_args > $radvisor_out 2>&1 &
       fi
     fi
   " &
