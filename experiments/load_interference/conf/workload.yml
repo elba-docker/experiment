@@ -1,0 +1,6 @@
+- sessionConfig: "$WISEHOME/experiments/load_interference/conf/session.yml"
+  noConcurrentSessions: $NUMBER_SESSIONS
+  startTime: 0
+  endTime: $TOTAL_TIME
+  rampUpDuration: $RAMP_UP
+  rampDownDuration: $RAMP_DOWN
